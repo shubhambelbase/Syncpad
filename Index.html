@@ -195,13 +195,11 @@
         <div class="flex-1 relative flex overflow-hidden">
             <div id="editor-container" class="flex-1 bg-white dark:bg-[#2d2d2d] transition-colors relative">
                 <pre id="highlighting-layer" aria-hidden="true" class="editor-layer"><code class="language-javascript" id="highlighting-content"></code></pre>
-                <textarea id="editing-layer" class="editor-layer" spellcheck="false" oninput="updateHighlighting(this.value); syncScroll(this);" onscroll="syncScroll(this);" onkeydown="checkTab(event)" placeholder="// Paste code here or start typing..."></textarea>
+                <textarea id="editing-layer" class="editor-layer" spellcheck="false" oninput="triggerLocalUpdate(this.value); syncScroll(this);" onscroll="syncScroll(this);" onkeydown="checkTab(event)" placeholder="// Paste code here or start typing..."></textarea>
 
-                <div id="lockOverlay" class="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
-                    <div class="bg-white dark:bg-slate-800 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border border-red-500/30">
-                        <i class="fa-solid fa-lock text-red-500 text-xl"></i>
-                        <span class="font-bold text-red-500">Locked by Host</span>
-                    </div>
+                <div id="lockBadge" class="absolute bottom-6 right-6 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-xl text-xs font-bold hidden pointer-events-none z-30 transition-all flex items-center gap-2 backdrop-blur-sm">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>READ ONLY MODE</span>
                 </div>
             </div>
 
@@ -243,39 +241,52 @@
         const STORAGE_KEY = "syncpad_v11_content";
         let peer = null, conn = null, pendingConn = null;
         let isHost = false, isChatOpen = false;
+        let networkDebounceTimer = null;
 
         const editingLayer = document.getElementById('editing-layer');
         const highlightingContent = document.getElementById('highlighting-content');
         
+        // --- UTILITIES ---
+        
+        // Debounce: prevents flooding the network
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
         function updateHighlighting(text) {
-            // Fix for "final newline" glitch where cursor disappears
             if(text[text.length-1] === "\n") text += " "; 
             highlightingContent.textContent = text; 
             Prism.highlightElement(highlightingContent);
         }
 
         function syncScroll(element) {
-            const result = document.getElementById('highlighting-layer');
-            result.scrollTop = element.scrollTop;
-            result.scrollLeft = element.scrollLeft;
+            document.getElementById('highlighting-layer').scrollTop = element.scrollTop;
+            document.getElementById('highlighting-layer').scrollLeft = element.scrollLeft;
         }
 
-        function checkTab(element) {
-            let code = element.keyCode || element.which;
-            if (code == 9) { // Tab
-                element.preventDefault();
-                let val = editingLayer.value, start = editingLayer.selectionStart, end = editingLayer.selectionEnd;
-                editingLayer.value = val.substring(0, start) + '\t' + val.substring(end);
+        function checkTab(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = editingLayer.selectionStart;
+                const end = editingLayer.selectionEnd;
+                editingLayer.value = editingLayer.value.substring(0, start) + "\t" + editingLayer.value.substring(end);
                 editingLayer.selectionStart = editingLayer.selectionEnd = start + 1;
-                updateHighlighting(editingLayer.value);
-                if (conn && conn.open) conn.send({ type: 'SYNC', content: editingLayer.value });
+                triggerLocalUpdate();
             }
         }
+
+        // --- CORE LOGIC ---
 
         window.addEventListener('load', () => {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) { editingLayer.value = saved; updateHighlighting(saved); }
             generateRandomCode();
+            
             const urlParams = new URLSearchParams(window.location.search);
             const joinCode = urlParams.get('join');
             if (joinCode && joinCode.length === 4) {
@@ -309,6 +320,8 @@
 
         function toggleTheme() { document.documentElement.classList.toggle('dark'); }
 
+        // --- HOST LOGIC ---
+
         function initHost() {
             const code = document.getElementById('hostCodeInput').value;
             if (code.length !== 4) return showToast("Code must be 4 digits");
@@ -322,6 +335,7 @@
             peer.on('open', (id) => {
                 showWorkspace(code);
                 document.getElementById('connectionDot').classList.add('animate-pulse');
+                showToast("Session Started");
             });
 
             peer.on('error', (err) => {
@@ -330,11 +344,34 @@
             });
 
             peer.on('connection', (c) => {
-                if (conn && conn.open) { c.close(); return; }
+                if (conn && conn.open) { c.close(); showToast("Blocked extra user"); return; }
                 pendingConn = c;
                 document.getElementById('approvalModal').classList.remove('hidden');
+                c.on('close', () => {
+                    document.getElementById('approvalModal').classList.add('hidden');
+                    pendingConn = null;
+                });
             });
         }
+
+        function handleApproval(allow) {
+            document.getElementById('approvalModal').classList.add('hidden');
+            if (allow && pendingConn) {
+                conn = pendingConn;
+                setupConnection(conn);
+                setTimeout(() => {
+                    if(conn.open) {
+                        conn.send({ type: 'SYNC', content: editingLayer.value });
+                        conn.send({ type: 'CHAT', msg: "Host accepted connection." });
+                    }
+                    setConnectedUI();
+                }, 500);
+            } else {
+                if(pendingConn) pendingConn.close(); pendingConn = null;
+            }
+        }
+
+        // --- GUEST LOGIC ---
 
         function initGuest() {
             const code = document.getElementById('joinCodeInput').value;
@@ -342,46 +379,38 @@
 
             isHost = false;
             document.getElementById('lockBtn').classList.add('hidden');
+            
+            const btn = document.querySelector('#form-join button');
+            const originalText = btn.innerText;
+            btn.innerText = "Waiting for Host...";
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+
             if(peer) peer.destroy();
             peer = new Peer();
 
             peer.on('open', () => {
-                showWorkspace(code);
                 const c = peer.connect(PREFIX + code);
-                c.on('data', (data) => handleData(data));
-                c.on('close', () => handleDisconnect());
-                conn = c;
+                
+                c.on('open', () => showToast("Request sent..."));
+
+                c.on('data', (data) => {
+                    if(!conn) {
+                        conn = c;
+                        showWorkspace(code);
+                        setConnectedUI();
+                    }
+                    handleData(data);
+                });
+
+                c.on('close', () => {
+                    handleDisconnect();
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    if(!conn) showToast("Connection Denied/Closed", "error");
+                });
             });
-        }
-
-        function showWorkspace(id) {
-            document.getElementById('displaySessionId').innerText = id;
-            const landing = document.getElementById('landingScreen');
-            const workspace = document.getElementById('editorScreen');
-            landing.style.opacity = '0'; landing.style.pointerEvents = 'none';
-            setTimeout(() => {
-                workspace.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
-                workspace.classList.add('opacity-100', 'scale-100');
-            }, 300);
-        }
-
-        function handleDisconnect() {
-            document.getElementById('connectionDot').classList.replace('bg-green-500', 'bg-orange-500');
-            conn = null;
-        }
-
-        function handleApproval(allow) {
-            document.getElementById('approvalModal').classList.add('hidden');
-            if (allow) {
-                conn = pendingConn;
-                setupConnection(conn);
-                setTimeout(() => {
-                    conn.send({ type: 'SYNC', content: editingLayer.value });
-                    setConnectedUI();
-                }, 500);
-            } else {
-                if(pendingConn) pendingConn.close(); pendingConn = null;
-            }
         }
 
         function setupConnection(c) {
@@ -391,22 +420,37 @@
         }
 
         function setConnectedUI() {
-            document.getElementById('connectionDot').classList.remove('bg-orange-500', 'bg-red-500');
+            document.getElementById('connectionDot').classList.remove('bg-orange-500', 'bg-red-500', 'animate-pulse');
             document.getElementById('connectionDot').classList.add('bg-green-500');
-            showToast("Connected!");
+            showToast("Connected Securely");
+        }
+
+        function handleDisconnect() {
+            document.getElementById('connectionDot').classList.remove('bg-green-500');
+            document.getElementById('connectionDot').classList.add('bg-red-500');
+            conn = null;
+            showToast("Disconnected");
         }
 
         function handleData(data) {
             switch(data.type) {
                 case 'SYNC':
                     if (editingLayer.value !== data.content) {
-                        const cursor = editingLayer.selectionStart;
+                        const oldCursor = editingLayer.selectionStart;
+                        const oldLen = editingLayer.value.length;
+                        
                         editingLayer.value = data.content;
                         updateHighlighting(data.content);
-                        editingLayer.setSelectionRange(cursor, cursor);
                         saveToLocal();
+                        
+                        const newLen = data.content.length;
+                        let newCursor = oldCursor;
+                        if (newLen > oldLen) newCursor = oldCursor + (newLen - oldLen);
+                        
+                        if(document.activeElement === editingLayer) {
+                             editingLayer.setSelectionRange(newCursor, newCursor);
+                        }
                     }
-                    if(!conn) { conn = peer.connections[Object.keys(peer.connections)[0]][0]; setConnectedUI(); }
                     break;
                 case 'CHAT':
                     addChatMessage(data.msg, false);
@@ -418,19 +462,49 @@
                     break;
                 case 'LOCK':
                     if(!isHost) {
-                        editingLayer.disabled = data.locked;
-                        if(data.locked) document.getElementById('lockOverlay').classList.remove('hidden');
-                        else document.getElementById('lockOverlay').classList.add('hidden');
+                        // FIX: Use readOnly instead of disabled
+                        editingLayer.readOnly = data.locked; 
+                        
+                        const badge = document.getElementById('lockBadge');
+                        if(data.locked) {
+                            badge.classList.remove('hidden');
+                            showToast("Host Locked Editing", "error");
+                        } else {
+                            badge.classList.add('hidden');
+                            showToast("Editing Unlocked");
+                        }
                     }
                     break;
             }
         }
 
-        editingLayer.addEventListener('input', (e) => {
-            updateHighlighting(e.target.value);
+        // --- EDITOR EVENTS ---
+
+        function triggerLocalUpdate() {
+            updateHighlighting(editingLayer.value);
             saveToLocal();
-            if (conn && conn.open) conn.send({ type: 'SYNC', content: e.target.value });
-        });
+            sendNetworkUpdate();
+        }
+
+        // FIX: Debounce network calls (300ms)
+        const sendNetworkUpdate = debounce(() => {
+            if (conn && conn.open) {
+                conn.send({ type: 'SYNC', content: editingLayer.value });
+            }
+        }, 300);
+
+        // --- UI FUNCTIONS ---
+
+        function showWorkspace(id) {
+            document.getElementById('displaySessionId').innerText = id;
+            const landing = document.getElementById('landingScreen');
+            const workspace = document.getElementById('editorScreen');
+            landing.style.opacity = '0'; landing.style.pointerEvents = 'none';
+            setTimeout(() => {
+                workspace.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                workspace.classList.add('opacity-100', 'scale-100');
+            }, 300);
+        }
 
         let isLocked = false;
         function toggleLock() {
@@ -486,14 +560,22 @@
             editingLayer.value = ""; updateHighlighting("");
             localStorage.removeItem(STORAGE_KEY);
             isLocked = false;
+            editingLayer.readOnly = false; // Reset lock state
+            document.getElementById('lockBadge').classList.add('hidden'); // Hide badge
             document.getElementById('lockIcon').className = "fa-solid fa-lock-open text-green-500";
             document.getElementById('chatMessages').innerHTML = "";
 
-            document.getElementById('connectionDot').classList.remove('bg-green-500', 'animate-pulse');
+            document.getElementById('connectionDot').classList.remove('bg-green-500', 'bg-red-500', 'animate-pulse');
             document.getElementById('connectionDot').classList.add('bg-orange-500');
 
             document.getElementById('editorScreen').classList.add('opacity-0', 'pointer-events-none', 'scale-95');
             document.getElementById('editorScreen').classList.remove('opacity-100', 'scale-100');
+            
+            const btn = document.querySelector('#form-join button');
+            btn.innerText = "Connect Now";
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+
             setTimeout(() => {
                 document.getElementById('landingScreen').style.opacity = '1'; 
                 document.getElementById('landingScreen').style.pointerEvents = 'auto';
@@ -518,11 +600,16 @@
         }
 
         async function pasteContent() {
+            if(editingLayer.readOnly) return showToast("Read Only Mode", "error"); // Block paste if locked
             try {
                 const text = await navigator.clipboard.readText();
-                editingLayer.value += text; updateHighlighting(editingLayer.value);
-                saveToLocal();
-                if(conn && conn.open) conn.send({ type: 'SYNC', content: editingLayer.value });
+                const start = editingLayer.selectionStart;
+                const end = editingLayer.selectionEnd;
+                const val = editingLayer.value;
+                editingLayer.value = val.substring(0, start) + text + val.substring(end);
+                editingLayer.selectionStart = editingLayer.selectionEnd = start + text.length;
+                
+                triggerLocalUpdate();
                 showToast("Pasted");
             } catch(e) { showToast("Permission Denied"); }
         }
@@ -534,6 +621,8 @@
             
             if(type === 'chat') {
                 icon.className = "fa-solid fa-comment-dots text-purple-400";
+            } else if (type === 'error') {
+                icon.className = "fa-solid fa-circle-exclamation text-red-500";
             } else {
                 icon.className = "fa-solid fa-circle-info text-primary";
             }
@@ -544,3 +633,4 @@
     </script>
 </body>
 </html>
+
