@@ -27,7 +27,7 @@
 
 This isn't just a notepad; it's a **shared brain with a voice**. Vibe coded to feel sleek and futuristic, SyncPad v11 reinvents the pastebin experience.
 
-Built entirely in the flow state, **v11 (Ultimate)** pushes the limits of client-side technology—handling real-time keystroke synchronization, live code highlighting, and **integrated secure messaging** without a single backend server. It's just you, your notes, and your chat.
+Built entirely in the flow state, **😉** pushes the limits of client-side technology—handling real-time keystroke synchronization, live code highlighting, and **integrated secure messaging** without a single backend server. It's just you, your notes, and your chat.
 
 ## 💡 What It Does
 
