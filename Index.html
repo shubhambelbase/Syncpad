@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SyncPad v11</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { primary: '#6366f1', secondary: '#a855f7', darkBg: '#0f172a' },
+                    animation: { 'slide-up': 'slideUp 0.4s ease-out forwards' },
+                    keyframes: { slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* --- CRITICAL ALIGNMENT & WRAPPING FIXES --- */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .dark .glass-panel { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .screen { transition: all 0.5s ease-in-out; }
+        .chat-msg { animation: slideUp 0.3s ease-out; }
+
+        #editor-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
+        
+        /* SHARED GEOMETRY FOR BOTH LAYERS */
+        .editor-layer {
+            position: absolute; top: 0; left: 0;
+            
+            /* 1. SIZE LOCK */
+            width: 100% !important; 
+            height: 100% !important;
+            box-sizing: border-box !important;
+            
+            /* 2. TEXT BEHAVIOR LOCK (Base Rules) */
+            text-align: left !important;
+            
+            /* 3. SCROLLING BEHAVIOR */
+            overflow: auto;
+            border: none; outline: none; resize: none;
+            
+            /* 4. PADDING MATCH */
+            padding: 20px !important;
+            margin: 0 !important;
+
+            /* Typography Lock */
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+            font-size: 16px !important;
+            line-height: 1.5 !important;
+            letter-spacing: 0px !important;
+        }
+
+        /* Layer 1: Visuals (The Highlighter) */
+        #highlighting-layer { 
+            z-index: 1; pointer-events: none; background: transparent !important; 
+        }
+
+        /* --- THE WRAPPING FIX --- */
+        /* Prism normally forces "pre" (no wrap). We must force "pre-wrap" on both PRE and CODE tags. */
+        pre[class*="language-"], code[class*="language-"] {
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            word-break: break-word !important;
+            
+            /* Reset Prism Spacing to match Input */
+            padding: 0 !important; /* Inner padding 0, Outer .editor-layer handles the 20px */
+            margin: 0 !important;
+            background: transparent !important;
+            text-shadow: none !important;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
+            font-size: 16px !important;
+            line-height: 1.5 !important;
+        }
+
+        /* Helper for the outer pre tag specifically */
+        pre[class*="language-"] {
+            padding: 20px !important; /* Must match the textarea padding */
+        }
+
+        /* Layer 2: Input (The Cursor) */
+        #editing-layer { 
+            z-index: 2; color: transparent; background: transparent; caret-color: white; 
+            display: block !important;
+            transform: none !important;
+            
+            /* Ensure Input also wraps identically */
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+
+        html:not(.dark) #editing-layer { caret-color: #333; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-darkBg text-slate-800 dark:text-slate-200 min-h-screen font-sans overflow-hidden selection:bg-primary selection:text-white transition-colors duration-300">
+
+    <section id="landingScreen" class="screen fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+            <div class="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/20 rounded-full blur-[100px] animate-pulse"></div>
+        </div>
+
+        <div class="w-full max-w-md glass-panel p-8 rounded-3xl shadow-2xl animate-slide-up relative z-10">
+            <div class="text-center mb-8 relative">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/30 mb-4">
+                    <i class="fa-solid fa-code text-2xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold tracking-tight mb-2">SyncPad <span class="text-primary">v11</span></h1>
+                <p class="text-sm opacity-60">Pixel-Perfect Editor</p>
+                <button onclick="toggleTheme()" class="absolute top-0 right-0 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+                </button>
+            </div>
+
+            <div class="flex p-1 bg-black/5 dark:bg-white/5 rounded-xl mb-6">
+                <button onclick="switchTab('host')" id="btn-host" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all bg-white dark:bg-slate-700 shadow-sm">Host</button>
+                <button onclick="switchTab('join')" id="btn-join" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all opacity-60 hover:opacity-100">Join</button>
+            </div>
+
+            <div id="form-host" class="space-y-4">
+                <div class="relative">
+                    <label class="text-xs font-bold uppercase tracking-wider opacity-50 ml-1 mb-1 block">Your Room Code</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="hostCodeInput" maxlength="4" class="w-full bg-black/5 dark:bg-black/20 border border-transparent focus:border-primary rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] transition-all" placeholder="----">
+                        <button onclick="generateRandomCode()" class="px-4 rounded-xl bg-black/5 dark:bg-white/5 hover:text-primary transition-colors"><i class="fa-solid fa-dice"></i></button>
+                    </div>
+                </div>
+                <button onclick="initHost()" class="w-full py-4 rounded-xl bg-primary hover:bg-indigo-500 text-white font-bold text-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">Start Session</button>
+            </div>
+
+            <div id="form-join" class="space-y-4 hidden">
+                <div>
+                    <label class="text-xs font-bold uppercase tracking-wider opacity-50 ml-1 mb-1 block">Enter Room Code</label>
+                    <input type="text" id="joinCodeInput" maxlength="4" class="w-full bg-black/5 dark:bg-black/20 border border-transparent focus:border-primary rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] transition-all" placeholder="0000">
+                </div>
+                <button onclick="initGuest()" class="w-full py-4 rounded-xl bg-secondary hover:bg-purple-600 text-white font-bold text-lg shadow-lg shadow-secondary/30 transition-all active:scale-[0.98]">Connect Now</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="editorScreen" class="screen fixed inset-0 z-0 flex flex-col opacity-0 pointer-events-none scale-95">
+        
+        <nav class="h-14 px-3 md:px-6 flex items-center justify-between border-b border-gray-200 dark:border-slate-800 bg-white/90 dark:bg-darkBg/90 backdrop-blur-md z-20">
+            <div class="flex items-center gap-2 md:gap-4">
+                <div class="flex items-center gap-2">
+                    <div id="connectionDot" class="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+                    <span class="font-bold text-lg hidden sm:block">SyncPad</span>
+                </div>
+                <button onclick="copyMagicLink()" class="group px-2 py-1 rounded-md bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 font-mono text-xs md:text-sm hover:border-primary transition-colors flex items-center gap-2" title="Copy Magic Link">
+                    <span class="opacity-50">ID:</span>
+                    <span id="displaySessionId" class="font-bold text-primary">----</span>
+                    <i class="fa-solid fa-link text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-1 md:gap-2">
+                <button id="lockBtn" onclick="toggleLock()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all hidden">
+                    <i id="lockIcon" class="fa-solid fa-lock-open text-green-500 text-sm"></i>
+                </button>
+                <button onclick="copyAll()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all opacity-70 hover:opacity-100">
+                    <i class="fa-regular fa-copy text-sm"></i>
+                </button>
+                <button onclick="pasteContent()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all opacity-70 hover:opacity-100">
+                    <i class="fa-regular fa-clipboard text-sm"></i>
+                </button>
+                <button onclick="toggleTheme()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-moon dark:hidden text-sm"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-sm"></i>
+                </button>
+                <button onclick="toggleChat()" class="relative w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all">
+                    <i class="fa-regular fa-comments text-sm"></i>
+                    <span id="chatBadge" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full hidden"></span>
+                </button>
+                <button onclick="saveFile()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all active:scale-95 text-xs font-bold ml-1">
+                    SAVE
+                </button>
+                <button onclick="endSession()" class="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all ml-1">
+                    <i class="fa-solid fa-power-off text-sm"></i>
+                </button>
+            </div>
+        </nav>
+
+        <div class="flex-1 relative flex overflow-hidden">
+            <div id="editor-container" class="flex-1 bg-white dark:bg-[#2d2d2d] transition-colors relative">
+                <pre id="highlighting-layer" aria-hidden="true" class="editor-layer"><code class="language-javascript" id="highlighting-content"></code></pre>
+                <textarea id="editing-layer" class="editor-layer" spellcheck="false" oninput="updateHighlighting(this.value); syncScroll(this);" onscroll="syncScroll(this);" onkeydown="checkTab(event)" placeholder="// Paste code here or start typing..."></textarea>
+
+                <div id="lockOverlay" class="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-[2px] z-50 hidden flex items-center justify-center">
+                    <div class="bg-white dark:bg-slate-800 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border border-red-500/30">
+                        <i class="fa-solid fa-lock text-red-500 text-xl"></i>
+                        <span class="font-bold text-red-500">Locked by Host</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chatPanel" class="w-80 border-l border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex flex-col transition-all duration-300 transform translate-x-full absolute right-0 top-0 h-full z-40 shadow-xl">
+                <div class="p-4 border-b border-gray-200 dark:border-slate-700 font-bold text-sm flex justify-between items-center">
+                    <span>Session Chat</span>
+                    <button onclick="toggleChat()" class="text-xs opacity-50 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+                <div class="p-3 border-t border-gray-200 dark:border-slate-700">
+                    <form onsubmit="sendChat(event)" class="flex gap-2">
+                        <input type="text" id="chatInput" placeholder="Type..." class="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                        <button type="submit" class="p-2 rounded-lg bg-primary text-white hover:bg-primary/90"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="approvalModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 animate-slide-up text-center border border-white/10">
+            <div class="w-14 h-14 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fa-solid fa-user-lock"></i></div>
+            <h3 class="text-xl font-bold mb-1">Incoming Connection</h3>
+            <p class="text-sm opacity-60 mb-6">Someone wants to join your session.</p>
+            <div class="flex gap-3">
+                <button onclick="handleApproval(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 font-medium">Deny</button>
+                <button onclick="handleApproval(true)" class="flex-1 py-2.5 rounded-xl bg-primary hover:bg-indigo-500 text-white font-bold shadow-lg shadow-primary/20">Allow</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full bg-slate-800 text-white shadow-xl opacity-0 transition-all duration-300 pointer-events-none z-[110] text-sm flex items-center gap-2 translate-y-10 border border-white/10">
+        <i class="fa-solid fa-circle-info text-primary" id="toastIcon"></i>
+        <span id="toastMsg">Notification</span>
+    </div>
+
+    <script>
+        const PREFIX = "syncpad-v11-wrap-";
+        const STORAGE_KEY = "syncpad_v11_content";
+        let peer = null, conn = null, pendingConn = null;
+        let isHost = false, isChatOpen = false;
+
+        const editingLayer = document.getElementById('editing-layer');
+        const highlightingContent = document.getElementById('highlighting-content');
+        
+        function updateHighlighting(text) {
+            // Fix for "final newline" glitch where cursor disappears
+            if(text[text.length-1] === "\n") text += " "; 
+            highlightingContent.textContent = text; 
+            Prism.highlightElement(highlightingContent);
+        }
+
+        function syncScroll(element) {
+            const result = document.getElementById('highlighting-layer');
+            result.scrollTop = element.scrollTop;
+            result.scrollLeft = element.scrollLeft;
+        }
+
+        function checkTab(element) {
+            let code = element.keyCode || element.which;
+            if (code == 9) { // Tab
+                element.preventDefault();
+                let val = editingLayer.value, start = editingLayer.selectionStart, end = editingLayer.selectionEnd;
+                editingLayer.value = val.substring(0, start) + '\t' + val.substring(end);
+                editingLayer.selectionStart = editingLayer.selectionEnd = start + 1;
+                updateHighlighting(editingLayer.value);
+                if (conn && conn.open) conn.send({ type: 'SYNC', content: editingLayer.value });
+            }
+        }
+
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) { editingLayer.value = saved; updateHighlighting(saved); }
+            generateRandomCode();
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinCode = urlParams.get('join');
+            if (joinCode && joinCode.length === 4) {
+                switchTab('join');
+                document.getElementById('joinCodeInput').value = joinCode;
+            }
+        });
+
+        function saveToLocal() { localStorage.setItem(STORAGE_KEY, editingLayer.value); }
+
+        function switchTab(tab) {
+            const hostForm = document.getElementById('form-host');
+            const joinForm = document.getElementById('form-join');
+            const hostBtn = document.getElementById('btn-host');
+            const joinBtn = document.getElementById('btn-join');
+
+            if (tab === 'host') {
+                hostForm.classList.remove('hidden'); joinForm.classList.add('hidden');
+                hostBtn.classList.remove('opacity-60'); joinBtn.classList.add('opacity-60');
+                hostBtn.classList.add('bg-white', 'dark:bg-slate-700'); joinBtn.classList.remove('bg-white', 'dark:bg-slate-700');
+            } else {
+                joinForm.classList.remove('hidden'); hostForm.classList.add('hidden');
+                joinBtn.classList.remove('opacity-60'); hostBtn.classList.add('opacity-60');
+                joinBtn.classList.add('bg-white', 'dark:bg-slate-700'); hostBtn.classList.remove('bg-white', 'dark:bg-slate-700');
+            }
+        }
+
+        function generateRandomCode() {
+            document.getElementById('hostCodeInput').value = Math.floor(1000 + Math.random() * 9000).toString();
+        }
+
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); }
+
+        function initHost() {
+            const code = document.getElementById('hostCodeInput').value;
+            if (code.length !== 4) return showToast("Code must be 4 digits");
+
+            isHost = true;
+            document.getElementById('lockBtn').classList.remove('hidden');
+            
+            if(peer) peer.destroy();
+            peer = new Peer(PREFIX + code);
+
+            peer.on('open', (id) => {
+                showWorkspace(code);
+                document.getElementById('connectionDot').classList.add('animate-pulse');
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') showToast(`Code ${code} is busy!`);
+                else showToast("Connection Error");
+            });
+
+            peer.on('connection', (c) => {
+                if (conn && conn.open) { c.close(); return; }
+                pendingConn = c;
+                document.getElementById('approvalModal').classList.remove('hidden');
+            });
+        }
+
+        function initGuest() {
+            const code = document.getElementById('joinCodeInput').value;
+            if (code.length !== 4) return showToast("Enter 4-digit Code");
+
+            isHost = false;
+            document.getElementById('lockBtn').classList.add('hidden');
+            if(peer) peer.destroy();
+            peer = new Peer();
+
+            peer.on('open', () => {
+                showWorkspace(code);
+                const c = peer.connect(PREFIX + code);
+                c.on('data', (data) => handleData(data));
+                c.on('close', () => handleDisconnect());
+                conn = c;
+            });
+        }
+
+        function showWorkspace(id) {
+            document.getElementById('displaySessionId').innerText = id;
+            const landing = document.getElementById('landingScreen');
+            const workspace = document.getElementById('editorScreen');
+            landing.style.opacity = '0'; landing.style.pointerEvents = 'none';
+            setTimeout(() => {
+                workspace.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                workspace.classList.add('opacity-100', 'scale-100');
+            }, 300);
+        }
+
+        function handleDisconnect() {
+            document.getElementById('connectionDot').classList.replace('bg-green-500', 'bg-orange-500');
+            conn = null;
+        }
+
+        function handleApproval(allow) {
+            document.getElementById('approvalModal').classList.add('hidden');
+            if (allow) {
+                conn = pendingConn;
+                setupConnection(conn);
+                setTimeout(() => {
+                    conn.send({ type: 'SYNC', content: editingLayer.value });
+                    setConnectedUI();
+                }, 500);
+            } else {
+                if(pendingConn) pendingConn.close(); pendingConn = null;
+            }
+        }
+
+        function setupConnection(c) {
+            c.on('data', (data) => handleData(data));
+            c.on('close', () => handleDisconnect());
+            setConnectedUI();
+        }
+
+        function setConnectedUI() {
+            document.getElementById('connectionDot').classList.remove('bg-orange-500', 'bg-red-500');
+            document.getElementById('connectionDot').classList.add('bg-green-500');
+            showToast("Connected!");
+        }
+
+        function handleData(data) {
+            switch(data.type) {
+                case 'SYNC':
+                    if (editingLayer.value !== data.content) {
+                        const cursor = editingLayer.selectionStart;
+                        editingLayer.value = data.content;
+                        updateHighlighting(data.content);
+                        editingLayer.setSelectionRange(cursor, cursor);
+                        saveToLocal();
+                    }
+                    if(!conn) { conn = peer.connections[Object.keys(peer.connections)[0]][0]; setConnectedUI(); }
+                    break;
+                case 'CHAT':
+                    addChatMessage(data.msg, false);
+                    if(!isChatOpen) {
+                        document.getElementById('chatBadge').classList.remove('hidden');
+                        let preview = data.msg.length > 25 ? data.msg.substring(0, 25) + '...' : data.msg;
+                        showToast(`Msg: ${preview}`, 'chat');
+                    }
+                    break;
+                case 'LOCK':
+                    if(!isHost) {
+                        editingLayer.disabled = data.locked;
+                        if(data.locked) document.getElementById('lockOverlay').classList.remove('hidden');
+                        else document.getElementById('lockOverlay').classList.add('hidden');
+                    }
+                    break;
+            }
+        }
+
+        editingLayer.addEventListener('input', (e) => {
+            updateHighlighting(e.target.value);
+            saveToLocal();
+            if (conn && conn.open) conn.send({ type: 'SYNC', content: e.target.value });
+        });
+
+        let isLocked = false;
+        function toggleLock() {
+            if(!isHost) return;
+            isLocked = !isLocked;
+            const icon = document.getElementById('lockIcon');
+            icon.className = isLocked ? "fa-solid fa-lock text-red-500" : "fa-solid fa-lock-open text-green-500";
+            if(conn && conn.open) conn.send({ type: 'LOCK', locked: isLocked });
+            showToast(isLocked ? "Guest Locked" : "Guest Unlocked");
+        }
+
+        function toggleChat() {
+            isChatOpen = !isChatOpen;
+            const panel = document.getElementById('chatPanel');
+            if(isChatOpen) {
+                panel.classList.remove('translate-x-full');
+                document.getElementById('chatBadge').classList.add('hidden');
+            } else {
+                panel.classList.add('translate-x-full');
+            }
+        }
+
+        function sendChat(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if(!msg) return;
+            addChatMessage(msg, true);
+            if(conn && conn.open) conn.send({ type: 'CHAT', msg: msg });
+            input.value = "";
+        }
+
+        function addChatMessage(msg, isMe) {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = `chat-msg max-w-[80%] p-2.5 rounded-xl text-sm mb-2 ${isMe ? 'ml-auto bg-primary text-white rounded-tr-none' : 'mr-auto bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-tl-none'}`;
+            div.innerText = msg;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function copyMagicLink() {
+            const id = document.getElementById('displaySessionId').innerText;
+            const link = `${window.location.origin}${window.location.pathname}?join=${id}`;
+            navigator.clipboard.writeText(link);
+            showToast("Magic Link Copied!");
+        }
+
+        function endSession() {
+            if (peer) { peer.destroy(); peer = null; }
+            if (conn) { conn.close(); conn = null; }
+            
+            editingLayer.value = ""; updateHighlighting("");
+            localStorage.removeItem(STORAGE_KEY);
+            isLocked = false;
+            document.getElementById('lockIcon').className = "fa-solid fa-lock-open text-green-500";
+            document.getElementById('chatMessages').innerHTML = "";
+
+            document.getElementById('connectionDot').classList.remove('bg-green-500', 'animate-pulse');
+            document.getElementById('connectionDot').classList.add('bg-orange-500');
+
+            document.getElementById('editorScreen').classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+            document.getElementById('editorScreen').classList.remove('opacity-100', 'scale-100');
+            setTimeout(() => {
+                document.getElementById('landingScreen').style.opacity = '1'; 
+                document.getElementById('landingScreen').style.pointerEvents = 'auto';
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 300);
+            showToast("Session Cleared");
+        }
+
+        function saveFile() {
+            const blob = new Blob([editingLayer.value], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "syncpad.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function copyAll() {
+            editingLayer.select(); document.execCommand('copy');
+            window.getSelection().removeAllRanges(); showToast("Copied");
+        }
+
+        async function pasteContent() {
+            try {
+                const text = await navigator.clipboard.readText();
+                editingLayer.value += text; updateHighlighting(editingLayer.value);
+                saveToLocal();
+                if(conn && conn.open) conn.send({ type: 'SYNC', content: editingLayer.value });
+                showToast("Pasted");
+            } catch(e) { showToast("Permission Denied"); }
+        }
+
+        function showToast(msg, type = "info") {
+            const t = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').innerText = msg;
+            
+            if(type === 'chat') {
+                icon.className = "fa-solid fa-comment-dots text-purple-400";
+            } else {
+                icon.className = "fa-solid fa-circle-info text-primary";
+            }
+
+            t.classList.remove('translate-y-10', 'opacity-0');
+            setTimeout(() => t.classList.add('translate-y-10', 'opacity-0'), 2500);
+        }
+    </script>
+</body>
+</html>
