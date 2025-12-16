@@ -66,7 +66,7 @@ Because this app uses WebRTC, **it works best via HTTPS** or `localhost`.
 ### Option 2: Local Network
 1.  **Clone the repo:**
     ```bash
-    git clone [https://github.com/shubhambelbase/SyncPad.git](https://github.com/shubhambelbase/SyncPad.git)
+    git clone https://github.com/shubhambelbase/SyncPad.git
     ```
 2.  **Navigate to folder:**
     ```bash
