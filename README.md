@@ -7,7 +7,7 @@
   <h1>⚡ SyncPad v11 - Ultimate</h1>
   
   <p>
-    <strong>Real-time collaborative code editor with syntax highlighting, live sync, and secure P2P chat.</strong>
+    <strong>The ultimate serverless pastebin. SyncPad lets you edit, sync, and share code snippets or notes in real-time with anyone, anywhere.</strong>
   </p>
 
   <p>
@@ -25,31 +25,31 @@
 
 ## ⚡ The Vibe
 
-This isn't just a notepad; it's a **shared brain**. Vibe coded to feel sleek and futuristic, SyncPad v11 removes the friction from collaborative coding.
+This isn't just a notepad; it's a **shared brain with a voice**. Vibe coded to feel sleek and futuristic, SyncPad v11 reinvents the pastebin experience.
 
-Built entirely in the flow state, **v11 (Ultimate)** pushes the limits of client-side technology—handling real-time keystroke synchronization, syntax highlighting, and secure chat **without a backend database**. It's just you, your code, and your team.
+Built entirely in the flow state, **v11 (Ultimate)** pushes the limits of client-side technology—handling real-time keystroke synchronization, live code highlighting, and **integrated secure messaging** without a single backend server. It's just you, your notes, and your chat.
 
 ## 💡 What It Does
 
-**SyncPad** establishes a secure, direct connection between multiple developers (Host & Guests).
+**SyncPad** establishes a secure, direct connection between multiple users (Host & Guests).
 
-* **The Problem:** Pastebin is static, Google Docs ruins code formatting, and setting up a VS Code server is too much work for a quick fix.
-* **The Solution:** A browser-based, instant collaboration tool. Open the link, share the code, and start hacking together. **Privacy by design.**
+* **The Problem:** Traditional pastebins are static (read-only), chat apps ruin code formatting, and sending files back and forth is slow.
+* **The Solution:** A browser-based, instant collaboration tool. Open the link, paste your code, and **chat securely** while you edit together. **Privacy by design.**
 
 
 ## ✨ Key Features
 
-| 🛡️ **Security & Sync** | 🎮 **Ultimate Editor Control** |
+| 🛡️ **Security & Communication** | 📝 **Ultimate Paste Control** |
 | :--- | :--- |
-| **Host Approval:** You decide who connects to your session | **Syntax Highlighting:** Real-time Text |
-| **Guest Lock:** Host can freeze guest editing instantly | **Smart Tab:** Indent code blocks perfectly |
-| **E2E Encryption:** Data flows directly via WebRTC | **Auto-Scroll Sync:** Viewports stay aligned automatically |
-| **Session Chat:** Built-in instant messaging for teams | **Auto-Save:** Never lose work; caches to local storage |
+| **💬 Session Chat:** Built-in, encrypted instant messaging | **Syntax Highlighting:** Auto-detects and colors code |
+| **Host Approval:** You decide who connects to your session | **Smart Tab:** Indent code blocks perfectly |
+| **Guest Lock:** Host can freeze guest editing instantly | **Auto-Scroll Sync:** Viewports stay aligned automatically |
+| **E2E Encryption:** Data & Chat flows directly via WebRTC | **Auto-Save:** Never lose work; caches to local storage |
 | **Magic Link:** One-click join via URL parameters | **Vibe Themes:** Toggle between clean Light and deep Dark mode |
 
 ## 🛠️ Built With
 
-* **WebRTC (PeerJS):** For low-latency, encrypted P2P text synchronization.
+* **WebRTC (PeerJS):** For low-latency, encrypted P2P text & chat synchronization.
 * **PrismJS:** For beautiful, lightweight syntax highlighting.
 * **TailwindCSS:** For the glassmorphism UI and responsive design.
 * **Vanilla JS:** Zero framework bloat for maximum performance on any device.
@@ -66,7 +66,7 @@ Because this app uses WebRTC, **it works best via HTTPS** or `localhost`.
 ### Option 2: Local Network
 1.  **Clone the repo:**
     ```bash
-    git clone https://github.com/shubhambelbase/SyncPad.git
+    git clone [https://github.com/shubhambelbase/SyncPad.git](https://github.com/shubhambelbase/SyncPad.git)
     ```
 2.  **Navigate to folder:**
     ```bash
@@ -81,22 +81,22 @@ Because this app uses WebRTC, **it works best via HTTPS** or `localhost`.
 
 ## 📖 How to Use
 
-1.  **Host Mode (Project Lead):**
+1.  **Host Mode (Owner):**
     * Open the app and click **"Start Session"**.
     * Copy the **4-digit Room Code** or the **Magic Link**.
-    * (Optional) Use the **Lock** icon to prevent guests from typing while you explain code.
+    * (Optional) Use the **Lock** icon to make the note read-only for guests.
 
-2.  **Join Mode (Collaborator):**
+2.  **Join Mode (Guest):**
     * Enter the 4-digit code in the "Join" box (or just click the Magic Link).
     * Wait for the Host to **Approve** your connection.
     * Start typing! Your cursor and text sync instantly.
-    * Use the **Chat** panel to discuss changes in real-time.
+    * **Use the Chat Sidebar** to discuss the code or notes in real-time!
 
 ## 🤝 Contributing
 
 Got an idea to make this even more "Vibe Coded"?
 1.  Fork it.
-2.  Create your Feature Branch (`git checkout -b feature/PythonSupport`)
+2.  Create your Feature Branch (`git checkout -b feature/FileSharing`)
 3.  Commit your Changes.
 4.  Push to the Branch.
 5.  Open a Pull Request.
