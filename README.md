@@ -4,7 +4,7 @@
   <br />
   <br />
 
-  <h1>⚡ SyncPad v11 - Ultimate</h1>
+  <h1>⚡ SyncPad</h1>
   
   <p>
     <strong>The ultimate serverless pastebin. SyncPad lets you edit, sync, and share code snippets or notes in real-time with anyone, anywhere.</strong>
