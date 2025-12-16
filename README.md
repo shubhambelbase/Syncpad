@@ -37,11 +37,11 @@ Built entirely in the flow state, **v11 (Ultimate)** pushes the limits of client
 * **The Solution:** A browser-based, instant collaboration tool. Open the link, share the code, and start hacking together. **Privacy by design.**
 
 
-## ✨ Key Features (v11)
+## ✨ Key Features
 
 | 🛡️ **Security & Sync** | 🎮 **Ultimate Editor Control** |
 | :--- | :--- |
-| **Host Approval:** You decide who connects to your session | **Syntax Highlighting:** Real-time JS/HTML/CSS coloring |
+| **Host Approval:** You decide who connects to your session | **Syntax Highlighting:** Real-time Text |
 | **Guest Lock:** Host can freeze guest editing instantly | **Smart Tab:** Indent code blocks perfectly |
 | **E2E Encryption:** Data flows directly via WebRTC | **Auto-Scroll Sync:** Viewports stay aligned automatically |
 | **Session Chat:** Built-in instant messaging for teams | **Auto-Save:** Never lose work; caches to local storage |
