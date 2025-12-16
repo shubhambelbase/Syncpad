@@ -36,11 +36,6 @@ Built entirely in the flow state, **v11 (Ultimate)** pushes the limits of client
 * **The Problem:** Pastebin is static, Google Docs ruins code formatting, and setting up a VS Code server is too much work for a quick fix.
 * **The Solution:** A browser-based, instant collaboration tool. Open the link, share the code, and start hacking together. **Privacy by design.**
 
-## 📸 Screenshots
-
-| Host Screen | Guest Lock | Dark/Light Mode |
-|:---:|:---:|:---:|
-| <img src="host.jpg" width="250"> | <img src="locked.jpg" width="250"> | <img src="mode.jpg" width="250"> |
 
 ## ✨ Key Features (v11)
 
