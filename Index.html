@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js" data-manual></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
     <script>
@@ -67,7 +67,6 @@
         }
 
         /* --- THE WRAPPING FIX --- */
-        /* Prism normally forces "pre" (no wrap). We must force "pre-wrap" on both PRE and CODE tags. */
         pre[class*="language-"], code[class*="language-"] {
             white-space: pre-wrap !important;
             word-wrap: break-word !important;
@@ -75,7 +74,7 @@
             word-break: break-word !important;
             
             /* Reset Prism Spacing to match Input */
-            padding: 0 !important; /* Inner padding 0, Outer .editor-layer handles the 20px */
+            padding: 0 !important; 
             margin: 0 !important;
             background: transparent !important;
             text-shadow: none !important;
@@ -86,7 +85,7 @@
 
         /* Helper for the outer pre tag specifically */
         pre[class*="language-"] {
-            padding: 20px !important; /* Must match the textarea padding */
+            padding: 20px !important; 
         }
 
         /* Layer 2: Input (The Cursor) */
@@ -195,7 +194,7 @@
         <div class="flex-1 relative flex overflow-hidden">
             <div id="editor-container" class="flex-1 bg-white dark:bg-[#2d2d2d] transition-colors relative">
                 <pre id="highlighting-layer" aria-hidden="true" class="editor-layer"><code class="language-javascript" id="highlighting-content"></code></pre>
-                <textarea id="editing-layer" class="editor-layer" spellcheck="false" oninput="triggerLocalUpdate(this.value); syncScroll(this);" onscroll="syncScroll(this);" onkeydown="checkTab(event)" placeholder="// Paste code here or start typing..."></textarea>
+                <textarea id="editing-layer" class="editor-layer" spellcheck="false" oninput="triggerLocalUpdate(); syncScroll();" onscroll="syncScroll();" onkeydown="checkTab(event)" placeholder="// Paste code here or start typing..."></textarea>
 
                 <div id="lockBadge" class="absolute bottom-6 right-6 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-xl text-xs font-bold hidden pointer-events-none z-30 transition-all flex items-center gap-2 backdrop-blur-sm">
                     <i class="fa-solid fa-lock"></i>
@@ -241,14 +240,12 @@
         const STORAGE_KEY = "syncpad_v11_content";
         let peer = null, conn = null, pendingConn = null;
         let isHost = false, isChatOpen = false;
-        let networkDebounceTimer = null;
 
         const editingLayer = document.getElementById('editing-layer');
         const highlightingContent = document.getElementById('highlighting-content');
         
         // --- UTILITIES ---
         
-        // Debounce: prevents flooding the network
         function debounce(func, wait) {
             let timeout;
             return function(...args) {
@@ -259,14 +256,17 @@
         }
 
         function updateHighlighting(text) {
-            if(text[text.length-1] === "\n") text += " "; 
-            highlightingContent.textContent = text; 
-            Prism.highlightElement(highlightingContent);
+            if(text && text[text.length-1] === "\n") text += " "; 
+            highlightingContent.textContent = text || ""; 
+            if (window.Prism) {
+                Prism.highlightElement(highlightingContent);
+            }
         }
 
-        function syncScroll(element) {
-            document.getElementById('highlighting-layer').scrollTop = element.scrollTop;
-            document.getElementById('highlighting-layer').scrollLeft = element.scrollLeft;
+        function syncScroll() {
+            const highlighter = document.getElementById('highlighting-layer');
+            highlighter.scrollTop = editingLayer.scrollTop;
+            highlighter.scrollLeft = editingLayer.scrollLeft;
         }
 
         function checkTab(e) {
@@ -324,7 +324,7 @@
 
         function initHost() {
             const code = document.getElementById('hostCodeInput').value;
-            if (code.length !== 4) return showToast("Code must be 4 digits");
+            if (code.length !== 4) return showToast("Code must be 4 digits", "error");
 
             isHost = true;
             document.getElementById('lockBtn').classList.remove('hidden');
@@ -339,8 +339,8 @@
             });
 
             peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') showToast(`Code ${code} is busy!`);
-                else showToast("Connection Error");
+                if (err.type === 'unavailable-id') showToast(`Code ${code} is busy!`, "error");
+                else showToast("Connection Error", "error");
             });
 
             peer.on('connection', (c) => {
@@ -375,7 +375,7 @@
 
         function initGuest() {
             const code = document.getElementById('joinCodeInput').value;
-            if (code.length !== 4) return showToast("Enter 4-digit Code");
+            if (code.length !== 4) return showToast("Enter 4-digit Code", "error");
 
             isHost = false;
             document.getElementById('lockBtn').classList.add('hidden');
@@ -410,6 +410,13 @@
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                     if(!conn) showToast("Connection Denied/Closed", "error");
                 });
+                
+                c.on('error', (err) => {
+                    showToast("Failed to connect", "error");
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                });
             });
         }
 
@@ -429,7 +436,7 @@
             document.getElementById('connectionDot').classList.remove('bg-green-500');
             document.getElementById('connectionDot').classList.add('bg-red-500');
             conn = null;
-            showToast("Disconnected");
+            showToast("Disconnected", "error");
         }
 
         function handleData(data) {
@@ -462,7 +469,6 @@
                     break;
                 case 'LOCK':
                     if(!isHost) {
-                        // FIX: Use readOnly instead of disabled
                         editingLayer.readOnly = data.locked; 
                         
                         const badge = document.getElementById('lockBadge');
@@ -486,7 +492,6 @@
             sendNetworkUpdate();
         }
 
-        // FIX: Debounce network calls (300ms)
         const sendNetworkUpdate = debounce(() => {
             if (conn && conn.open) {
                 conn.send({ type: 'SYNC', content: editingLayer.value });
@@ -560,8 +565,8 @@
             editingLayer.value = ""; updateHighlighting("");
             localStorage.removeItem(STORAGE_KEY);
             isLocked = false;
-            editingLayer.readOnly = false; // Reset lock state
-            document.getElementById('lockBadge').classList.add('hidden'); // Hide badge
+            editingLayer.readOnly = false; 
+            document.getElementById('lockBadge').classList.add('hidden'); 
             document.getElementById('lockIcon').className = "fa-solid fa-lock-open text-green-500";
             document.getElementById('chatMessages').innerHTML = "";
 
@@ -600,7 +605,7 @@
         }
 
         async function pasteContent() {
-            if(editingLayer.readOnly) return showToast("Read Only Mode", "error"); // Block paste if locked
+            if(editingLayer.readOnly) return showToast("Read Only Mode", "error");
             try {
                 const text = await navigator.clipboard.readText();
                 const start = editingLayer.selectionStart;
@@ -610,8 +615,9 @@
                 editingLayer.selectionStart = editingLayer.selectionEnd = start + text.length;
                 
                 triggerLocalUpdate();
+                syncScroll();
                 showToast("Pasted");
-            } catch(e) { showToast("Permission Denied"); }
+            } catch(e) { showToast("Permission Denied", "error"); }
         }
 
         function showToast(msg, type = "info") {
@@ -633,4 +639,3 @@
     </script>
 </body>
 </html>
-
