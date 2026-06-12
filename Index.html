@@ -2,274 +2,1724 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncPad v11</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncPad — Real-time Collaborative Pad</title>
+    <meta name="description" content="Share text, code, and ideas in real-time. Peer-to-peer, encrypted, zero sign-up.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Libraries -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js" data-manual></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: { primary: '#6366f1', secondary: '#a855f7', darkBg: '#0f172a' },
-                    animation: { 'slide-up': 'slideUp 0.4s ease-out forwards' },
-                    keyframes: { slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } } }
-                }
-            }
-        }
-    </script>
     <style>
-        /* --- CRITICAL ALIGNMENT & WRAPPING FIXES --- */
-        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+        /* ================================================================
+           DESIGN TOKENS
+           ================================================================ */
+        :root {
+            /* Light Theme */
+            --bg-0: #eef0f5;
+            --bg-1: #ffffff;
+            --bg-2: #f0f1f5;
+            --bg-3: #dfe1e8;
+            --bg-4: #cdd0da;
+            --text-0: #0c1221;
+            --text-1: #3b4463;
+            --text-2: #6b7394;
+            --accent: #e11d48;
+            --accent-light: #f43f5e;
+            --accent-dim: rgba(225, 29, 72, 0.08);
+            --accent-glow: rgba(225, 29, 72, 0.18);
+            --green: #16a34a;
+            --red: #dc2626;
+            --amber: #d97706;
+            --border: rgba(12, 18, 33, 0.12);
+            --border-hover: rgba(12, 18, 33, 0.22);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+            --shadow-lg: 0 12px 48px rgba(0,0,0,0.14);
+            --shadow-glow: 0 0 30px rgba(225, 29, 72, 0.12);
+            --editor-bg: #ffffff;
+            --editor-gutter: #f4f5f8;
+            --glass-bg: rgba(255,255,255,0.82);
+            --glass-border: rgba(12, 18, 33, 0.10);
+            --hero-bg: #f5f6fa;
+            --hero-dot: rgba(225, 29, 72, 0.10);
+            --hero-glow: rgba(225, 29, 72, 0.05);
+            --code-text: #1a1f36;
+            --code-comment: #5e6687;
+            --code-keyword: #c5004a;
+            --code-string: #032f62;
+            --code-number: #0451a5;
+            --code-function: #6f42c1;
+            --code-punctuation: #1a1f36;
+            --code-property: #0451a5;
+            --code-tag: #22783d;
+            --code-builtin: #8a5700;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-full: 9999px;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-        .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .dark .glass-panel { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .screen { transition: all 0.5s ease-in-out; }
-        .chat-msg { animation: slideUp 0.3s ease-out; }
+        html.dark {
+            --bg-0: #0a0e1a;
+            --bg-1: #111827;
+            --bg-2: #1e293b;
+            --bg-3: #334155;
+            --bg-4: #475569;
+            --text-0: #f1f5f9;
+            --text-1: #94a3b8;
+            --text-2: #64748b;
+            --accent: #fb7185;
+            --accent-light: #fda4af;
+            --accent-dim: rgba(251, 113, 133, 0.12);
+            --accent-glow: rgba(251, 113, 133, 0.25);
+            --border: rgba(148, 163, 184, 0.08);
+            --border-hover: rgba(148, 163, 184, 0.18);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+            --shadow-lg: 0 12px 48px rgba(0,0,0,0.5);
+            --shadow-glow: 0 0 40px rgba(251, 113, 133, 0.18);
+            --editor-bg: #0d1117;
+            --editor-gutter: #161b22;
+            --glass-bg: rgba(17, 24, 39, 0.75);
+            --glass-border: rgba(148, 163, 184, 0.08);
+            --hero-bg: #0a0e1a;
+            --hero-dot: rgba(251, 113, 133, 0.08);
+            --hero-glow: rgba(251, 113, 133, 0.04);
+            --code-text: #c9d1d9;
+            --code-comment: #8b949e;
+            --code-keyword: #ff7b72;
+            --code-string: #a5d6ff;
+            --code-number: #79c0ff;
+            --code-function: #d2a8ff;
+            --code-punctuation: #8b949e;
+            --code-property: #79c0ff;
+            --code-tag: #7ee787;
+            --code-builtin: #ffa657;
+        }
 
-        #editor-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
-        
-        /* SHARED GEOMETRY FOR BOTH LAYERS */
+        /* ================================================================
+           RESET & BASE
+           ================================================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; height: 100%; }
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-0);
+            color: var(--text-0);
+            min-height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background var(--transition), color var(--transition);
+        }
+        ::selection { background: var(--accent); color: white; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--bg-4); }
+
+        /* ================================================================
+           PRISM OVERRIDES — Theme-aware syntax colors
+           ================================================================ */
+        code[class*="language-"], pre[class*="language-"] {
+            color: var(--code-text) !important;
+            text-shadow: none !important;
+            background: none !important;
+        }
+        .token.comment, .token.prolog, .token.doctype, .token.cdata { color: var(--code-comment) !important; font-style: italic; }
+        .token.keyword, .token.atrule { color: var(--code-keyword) !important; }
+        .token.string, .token.char, .token.attr-value { color: var(--code-string) !important; }
+        .token.number, .token.boolean, .token.constant { color: var(--code-number) !important; }
+        .token.function, .token.class-name { color: var(--code-function) !important; }
+        .token.punctuation { color: var(--code-punctuation) !important; }
+        .token.property, .token.symbol { color: var(--code-property) !important; }
+        .token.tag, .token.selector { color: var(--code-tag) !important; }
+        .token.builtin, .token.important, .token.regex, .token.variable, .token.attr-name { color: var(--code-builtin) !important; }
+        .token.operator, .token.entity, .token.url { color: var(--code-text) !important; }
+
+        /* ================================================================
+           GLASS EFFECT
+           ================================================================ */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            border: 1px solid var(--glass-border);
+        }
+
+        /* ================================================================
+           BUTTONS
+           ================================================================ */
+        .btn-primary {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 14px 24px;
+            background: linear-gradient(135deg, var(--accent), #be123c);
+            color: white; font-family: var(--font-ui);
+            font-weight: 700; font-size: 15px;
+            border: none; border-radius: var(--radius-md);
+            cursor: pointer; transition: all var(--transition);
+            box-shadow: 0 4px 20px var(--accent-glow);
+            position: relative; overflow: hidden;
+        }
+        .btn-primary::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            opacity: 0; transition: opacity var(--transition);
+        }
+        .btn-primary:hover::after { opacity: 1; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px var(--accent-glow); }
+        .btn-primary:active { transform: translateY(0) scale(0.98); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-secondary {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 14px 24px;
+            background: linear-gradient(135deg, #be123c, #e11d48);
+            color: white; font-family: var(--font-ui);
+            font-weight: 700; font-size: 15px;
+            border: none; border-radius: var(--radius-md);
+            cursor: pointer; transition: all var(--transition);
+            box-shadow: 0 4px 20px rgba(225, 29, 72, 0.25);
+        }
+        .btn-secondary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(225, 29, 72, 0.35); }
+        .btn-secondary:active { transform: translateY(0) scale(0.98); }
+        .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-ghost {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 8px 14px; background: var(--accent-dim);
+            color: var(--accent); font-family: var(--font-ui);
+            font-weight: 600; font-size: 13px;
+            border: none; border-radius: var(--radius-sm);
+            cursor: pointer; transition: all var(--transition);
+        }
+        .btn-ghost:hover { background: var(--accent-glow); }
+
+        /* ================================================================
+           LANDING PAGE
+           ================================================================ */
+        .landing {
+            position: fixed; inset: 0; z-index: 50;
+            display: grid; grid-template-columns: 1fr 1fr;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .landing.hidden { opacity: 0; pointer-events: none; transform: scale(0.96); }
+
+        /* --- Hero (Left Side) --- */
+        .landing-hero {
+            position: relative; display: flex; align-items: center; justify-content: center;
+            background: var(--hero-bg); overflow: hidden;
+        }
+
+        /* Dot grid background */
+        .hero-grid {
+            position: absolute; inset: 0;
+            background-image: radial-gradient(var(--hero-dot) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        /* Single soft radial accent glow — NOT a blob */
+        .hero-glow {
+            position: absolute;
+            width: 700px; height: 700px;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            opacity: 0.45;
+        }
+
+        /* Decorative floating code lines */
+        .hero-deco {
+            position: absolute; inset: 0; overflow: hidden;
+            pointer-events: none; z-index: 0;
+        }
+        .hero-deco-line {
+            position: absolute;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--accent);
+            opacity: 0.07;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+        .hero-deco-line:nth-child(1) { top: 14%; left: 8%; transform: rotate(-2deg); }
+        .hero-deco-line:nth-child(2) { top: 28%; right: 6%; transform: rotate(1.5deg); }
+        .hero-deco-line:nth-child(3) { bottom: 30%; left: 12%; transform: rotate(-1deg); }
+        .hero-deco-line:nth-child(4) { bottom: 16%; right: 10%; transform: rotate(2deg); }
+        .hero-deco-line:nth-child(5) { top: 52%; left: 5%; transform: rotate(-0.5deg); }
+        .hero-deco-line:nth-child(6) { top: 70%; right: 14%; transform: rotate(1deg); }
+
+        /* Subtle animated border accent at bottom edge */
+        .landing-hero::after {
+            content: '';
+            position: absolute; bottom: 0; left: 20%; right: 20%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+        }
+
+        .hero-content {
+            position: relative; z-index: 1; text-align: center; padding: 48px 40px;
+            max-width: 500px;
+        }
+        .hero-badge {
+            display: inline-block; padding: 5px 12px;
+            background: var(--accent-dim); color: var(--accent);
+            font-weight: 600; font-size: 11px;
+            border-radius: var(--radius-full);
+            letter-spacing: 1.5px; text-transform: uppercase;
+            margin-bottom: 28px;
+        }
+        .hero-content h1 {
+            font-size: 60px; font-weight: 800;
+            letter-spacing: -2.5px; line-height: 1;
+            margin-bottom: 20px;
+        }
+        .hero-content h1 span {
+            background: linear-gradient(135deg, var(--accent), #fda4af);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-tagline {
+            font-size: 16px; color: var(--text-2);
+            line-height: 1.7; margin-bottom: 36px;
+        }
+        .hero-features {
+            display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+        }
+        .hero-features .pill {
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 13px;
+            background: var(--accent-dim);
+            border-radius: var(--radius-full);
+            font-size: 12px; font-weight: 600; color: var(--text-1);
+        }
+        .hero-features .pill i { font-size: 10px; color: var(--accent); }
+
+        /* --- Form (Right Side) --- */
+        .landing-form-section {
+            display: flex; align-items: center; justify-content: center;
+            padding: 40px; background: var(--bg-1);
+            border-left: 1px solid var(--border);
+        }
+        .form-card {
+            width: 100%; max-width: 420px;
+            padding: 40px; border-radius: var(--radius-xl);
+            background: var(--bg-1); border: 1px solid var(--border-hover);
+            box-shadow: var(--shadow-lg);
+        }
+        .form-header {
+            text-align: center; margin-bottom: 32px;
+        }
+        .form-logo {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px; border-radius: var(--radius-lg);
+            background: linear-gradient(135deg, var(--accent), #be123c);
+            color: white; font-size: 22px;
+            box-shadow: 0 8px 24px var(--accent-glow);
+            margin-bottom: 16px;
+        }
+        .form-header h2 {
+            font-size: 22px; font-weight: 700; margin-bottom: 4px;
+        }
+        .form-header p { font-size: 14px; color: var(--text-2); }
+
+        /* Tab Bar */
+        .tab-bar {
+            display: flex; position: relative;
+            background: var(--bg-2); border-radius: var(--radius-md);
+            padding: 4px; margin-bottom: 28px;
+        }
+        .tab-bar button {
+            flex: 1; padding: 10px; background: none; border: none;
+            font-family: var(--font-ui); font-weight: 600; font-size: 14px;
+            color: var(--text-2); cursor: pointer;
+            border-radius: var(--radius-sm); position: relative; z-index: 1;
+            transition: color var(--transition);
+        }
+        .tab-bar button.active { color: var(--text-0); }
+        .tab-indicator {
+            position: absolute; top: 4px; left: 4px;
+            width: calc(50% - 4px); height: calc(100% - 8px);
+            background: var(--bg-1); border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tab-indicator.right { transform: translateX(100%); }
+
+        /* Tab Content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .form-label {
+            display: block; font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            color: var(--text-2); margin-bottom: 12px; padding-left: 2px;
+        }
+
+        /* Digit Inputs */
+        .digit-group {
+            display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;
+        }
+        .digit-input {
+            width: 64px; height: 72px; text-align: center;
+            font-family: var(--font-mono); font-size: 28px; font-weight: 600;
+            background: var(--bg-2); color: var(--text-0);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            outline: none; caret-color: var(--accent);
+            transition: all var(--transition);
+        }
+        .digit-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-dim);
+            transform: scale(1.05);
+        }
+        .digit-input.shake { animation: shake 0.4s ease; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+
+        .btn-regenerate {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 10px; margin-bottom: 16px;
+            background: none; border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-ui); font-weight: 500; font-size: 13px;
+            color: var(--text-2); cursor: pointer;
+            transition: all var(--transition);
+        }
+        .btn-regenerate:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-regenerate i { transition: transform 0.3s; }
+        .btn-regenerate:hover i { transform: rotate(180deg); }
+
+        .form-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 28px; padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        .form-footer .version {
+            font-size: 12px; color: var(--text-2); font-weight: 500;
+        }
+        .theme-toggle {
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); cursor: pointer;
+            color: var(--text-1); font-size: 14px;
+            transition: all var(--transition);
+        }
+        .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+        .connecting-spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ================================================================
+           EDITOR SCREEN
+           ================================================================ */
+        .editor-screen {
+            position: fixed; inset: 0; z-index: 10;
+            display: flex; flex-direction: column;
+            background: var(--bg-0);
+            opacity: 0; pointer-events: none;
+            transform: scale(0.97);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .editor-screen.visible { opacity: 1; pointer-events: auto; transform: scale(1); }
+
+        /* --- Toolbar --- */
+        .toolbar {
+            height: 52px; padding: 0 12px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg-1);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0; gap: 8px;
+            z-index: 20;
+        }
+        .toolbar-section { display: flex; align-items: center; gap: 8px; }
+        .toolbar-left { min-width: 0; }
+        .toolbar-center { flex: 1; display: flex; justify-content: center; gap: 8px; min-width: 0; }
+        .toolbar-right { min-width: 0; }
+
+        .brand-mark {
+            font-weight: 800; font-size: 16px; color: var(--accent);
+            letter-spacing: -0.5px;
+        }
+
+        .connection-status {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 10px 4px 8px;
+            border-radius: var(--radius-full);
+            background: var(--bg-2);
+            font-size: 12px; font-weight: 600;
+        }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--amber); flex-shrink: 0;
+            transition: background var(--transition);
+        }
+        .status-dot.connected { background: var(--green); }
+        .status-dot.disconnected { background: var(--red); }
+        .status-dot.waiting { background: var(--amber); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .status-label { color: var(--text-2); white-space: nowrap; }
+
+        .session-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 10px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            font-family: var(--font-ui); font-size: 12px;
+            cursor: pointer; transition: all var(--transition);
+            color: var(--text-1);
+        }
+        .session-chip:hover { border-color: var(--accent); color: var(--accent); }
+        .chip-code { font-family: var(--font-mono); font-weight: 700; color: var(--accent); }
+        .chip-icon { font-size: 10px; opacity: 0; transition: opacity var(--transition); }
+        .session-chip:hover .chip-icon { opacity: 1; }
+
+        .filename-input {
+            width: 140px; padding: 6px 10px;
+            background: var(--bg-2); border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+            color: var(--text-0); outline: none;
+            text-align: center;
+            transition: all var(--transition);
+        }
+        .filename-input:focus { border-color: var(--accent); background: var(--bg-1); }
+
+        .language-select {
+            padding: 6px 10px; background: var(--bg-2);
+            border: 1px solid transparent; border-radius: var(--radius-sm);
+            font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+            color: var(--text-1); outline: none; cursor: pointer;
+            transition: all var(--transition);
+            -webkit-appearance: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            padding-right: 24px;
+        }
+        .language-select:hover { border-color: var(--border-hover); }
+        .language-select:focus { border-color: var(--accent); }
+
+        .toolbar-actions { display: flex; align-items: center; gap: 2px; }
+        .toolbar-btn {
+            width: 34px; height: 34px;
+            display: flex; align-items: center; justify-content: center;
+            background: none; border: none; border-radius: var(--radius-sm);
+            color: var(--text-2); font-size: 14px;
+            cursor: pointer; position: relative;
+            transition: all var(--transition);
+        }
+        .toolbar-btn:hover { background: var(--bg-2); color: var(--text-0); }
+        .toolbar-btn.active { color: var(--accent); background: var(--accent-dim); }
+
+        .toolbar-divider {
+            width: 1px; height: 20px;
+            background: var(--border); margin: 0 4px;
+        }
+
+        .badge {
+            position: absolute; top: 4px; right: 4px;
+            min-width: 16px; height: 16px;
+            background: var(--red); color: white;
+            font-size: 10px; font-weight: 700;
+            border-radius: var(--radius-full);
+            display: none; align-items: center; justify-content: center;
+            padding: 0 4px; line-height: 1;
+        }
+        .badge.visible { display: flex; }
+
+        .btn-save {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px; background: var(--accent);
+            color: white; border: none; border-radius: var(--radius-sm);
+            font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+            cursor: pointer; transition: all var(--transition);
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+        .btn-save:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-save:active { transform: scale(0.96); }
+        .btn-save span { display: none; }
+
+        .btn-end {
+            width: 34px; height: 34px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(239, 68, 68, 0.1); color: var(--red);
+            border: none; border-radius: var(--radius-sm);
+            font-size: 13px; cursor: pointer;
+            transition: all var(--transition);
+        }
+        .btn-end:hover { background: var(--red); color: white; }
+
+        /* --- Editor Body --- */
+        .editor-body {
+            flex: 1; display: flex; position: relative; overflow: hidden;
+        }
+        .editor-main {
+            flex: 1; display: flex; position: relative;
+            background: var(--editor-bg);
+            transition: background var(--transition);
+        }
+
+        /* Editor Container (Overlay System) */
+        #editor-container { position: relative; flex: 1; overflow: hidden; }
         .editor-layer {
             position: absolute; top: 0; left: 0;
-            
-            /* 1. SIZE LOCK */
-            width: 100% !important; 
-            height: 100% !important;
+            width: 100% !important; height: 100% !important;
             box-sizing: border-box !important;
-            
-            /* 2. TEXT BEHAVIOR LOCK (Base Rules) */
             text-align: left !important;
-            
-            /* 3. SCROLLING BEHAVIOR */
             overflow: auto;
             border: none; outline: none; resize: none;
-            
-            /* 4. PADDING MATCH */
-            padding: 20px !important;
-            margin: 0 !important;
-
-            /* Typography Lock */
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
-            font-size: 16px !important;
-            line-height: 1.5 !important;
+            padding: 20px !important; margin: 0 !important;
+            font-family: var(--font-mono) !important;
+            font-size: 14px !important;
+            line-height: 1.7 !important;
             letter-spacing: 0px !important;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            tab-size: 4;
         }
-
-        /* Layer 1: Visuals (The Highlighter) */
-        #highlighting-layer { 
-            z-index: 1; pointer-events: none; background: transparent !important; 
-        }
-
-        /* --- THE WRAPPING FIX --- */
         pre[class*="language-"], code[class*="language-"] {
             white-space: pre-wrap !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
-            word-break: break-word !important;
-            
-            /* Reset Prism Spacing to match Input */
-            padding: 0 !important; 
-            margin: 0 !important;
+            padding: 0 !important; margin: 0 !important;
             background: transparent !important;
             text-shadow: none !important;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace !important;
-            font-size: 16px !important;
-            line-height: 1.5 !important;
+            font-family: var(--font-mono) !important;
+            font-size: 14px !important;
+            line-height: 1.7 !important;
+        }
+        pre[class*="language-"] { padding: 20px !important; }
+
+        #highlighting-layer {
+            z-index: 1; pointer-events: none;
+            background: transparent !important;
+        }
+        #editing-layer {
+            z-index: 2; color: transparent; background: transparent;
+            caret-color: var(--accent);
+            display: block !important; transform: none !important;
+        }
+        #editing-layer::placeholder {
+            color: var(--text-2); opacity: 0.5;
         }
 
-        /* Helper for the outer pre tag specifically */
-        pre[class*="language-"] {
-            padding: 20px !important; 
+        /* Lock Badge */
+        .lock-badge {
+            position: absolute; bottom: 70px; right: 24px;
+            display: none; align-items: center; gap: 8px;
+            padding: 10px 18px;
+            background: var(--red); color: white;
+            border-radius: var(--radius-sm);
+            font-size: 12px; font-weight: 700;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+            z-index: 30; pointer-events: none;
+        }
+        .lock-badge.visible { display: flex; }
+
+        /* --- Chat Panel --- */
+        .chat-panel {
+            width: 320px; position: absolute; right: 0; top: 0; height: 100%;
+            display: flex; flex-direction: column;
+            background: var(--bg-1); border-left: 1px solid var(--border);
+            box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 40;
+        }
+        .chat-panel.open { transform: translateX(0); }
+
+        .chat-header {
+            padding: 14px 16px; display: flex; align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .chat-title {
+            font-size: 14px; font-weight: 700;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .chat-title i { color: var(--accent); font-size: 13px; }
+        .chat-close {
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            background: none; border: none;
+            color: var(--text-2); cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition);
+        }
+        .chat-close:hover { background: var(--bg-2); color: var(--text-0); }
+
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .chat-msg {
+            max-width: 85%; padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-size: 13px; line-height: 1.5;
+            animation: msgIn 0.25s ease;
+            word-break: break-word;
+        }
+        .chat-msg.me {
+            align-self: flex-end;
+            background: var(--accent); color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-msg.them {
+            align-self: flex-start;
+            background: var(--bg-2); color: var(--text-0);
+            border-bottom-left-radius: 4px;
+        }
+        .chat-msg .msg-time {
+            display: block; font-size: 10px; opacity: 0.6;
+            margin-top: 4px;
+        }
+        .chat-msg.system {
+            align-self: center; max-width: 100%;
+            background: none; color: var(--text-2);
+            font-size: 11px; font-style: italic;
+            padding: 4px 0;
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Layer 2: Input (The Cursor) */
-        #editing-layer { 
-            z-index: 2; color: transparent; background: transparent; caret-color: white; 
-            display: block !important;
-            transform: none !important;
-            
-            /* Ensure Input also wraps identically */
-            white-space: pre-wrap !important;
-            word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
+        .chat-input-form {
+            padding: 12px; display: flex; gap: 8px;
+            border-top: 1px solid var(--border);
+        }
+        .chat-input-form input {
+            flex: 1; padding: 10px 14px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-ui); font-size: 13px;
+            color: var(--text-0); outline: none;
+            transition: border-color var(--transition);
+        }
+        .chat-input-form input:focus { border-color: var(--accent); }
+        .chat-input-form button {
+            width: 38px; height: 38px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--accent); color: white;
+            border: none; border-radius: var(--radius-sm);
+            cursor: pointer; font-size: 13px;
+            transition: all var(--transition);
+        }
+        .chat-input-form button:hover { filter: brightness(1.1); }
+
+        /* --- Status Bar --- */
+        .status-bar {
+            height: 28px; padding: 0 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg-1);
+            border-top: 1px solid var(--border);
+            font-size: 11px; font-weight: 500; color: var(--text-2);
+            flex-shrink: 0;
+        }
+        .status-bar > div { display: flex; align-items: center; gap: 12px; }
+        .status-sep { color: var(--border-hover); }
+        .status-connection { display: flex; align-items: center; gap: 5px; }
+        .status-dot-small {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--text-2);
+        }
+        .status-dot-small.connected { background: var(--green); }
+        .status-dot-small.disconnected { background: var(--red); }
+
+        /* ================================================================
+           MODALS
+           ================================================================ */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal {
+            width: 100%; max-width: 380px; margin: 16px;
+            padding: 32px; border-radius: var(--radius-xl);
+            background: var(--bg-1); border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.92) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-icon {
+            width: 56px; height: 56px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 16px; font-size: 24px;
+        }
+        .modal-icon.warning { background: rgba(245,158,11,0.12); color: var(--amber); }
+        .modal h3 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .modal p { font-size: 14px; color: var(--text-2); margin-bottom: 24px; }
+        .modal-actions { display: flex; gap: 12px; }
+        .modal-actions button { flex: 1; }
+        .btn-outline {
+            padding: 12px; background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-family: var(--font-ui); font-weight: 600; font-size: 14px;
+            color: var(--text-0); cursor: pointer;
+            transition: all var(--transition);
+        }
+        .btn-outline:hover { background: var(--bg-2); }
+
+        /* ================================================================
+           TOASTS
+           ================================================================ */
+        .toast-container {
+            position: fixed; top: 16px; right: 16px; z-index: 200;
+            display: flex; flex-direction: column; gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 18px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            font-size: 13px; font-weight: 500; color: var(--text-0);
+            animation: toastIn 0.3s ease;
+            pointer-events: auto;
+            min-width: 240px;
+        }
+        .toast.removing { animation: toastOut 0.3s ease forwards; }
+        .toast-icon { font-size: 14px; flex-shrink: 0; }
+        .toast-icon.info { color: var(--accent); }
+        .toast-icon.error { color: var(--red); }
+        .toast-icon.success { color: var(--green); }
+        .toast-icon.chat { color: var(--accent); }
+        .toast-progress {
+            position: absolute; bottom: 0; left: 0; height: 2px;
+            background: var(--accent); border-radius: 0 0 var(--radius-md) var(--radius-md);
+            animation: progress 3s linear forwards;
+        }
+        @keyframes toastIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+        @keyframes progress { from { width: 100%; } to { width: 0%; } }
+
+        /* ================================================================
+           RESPONSIVE
+           ================================================================ */
+        @media (max-width: 768px) {
+            .landing { grid-template-columns: 1fr; }
+            .landing-hero {
+                position: absolute; inset: 0; z-index: 0;
+            }
+            .landing-form-section {
+                position: relative; z-index: 1;
+                min-height: 100vh;
+                background: transparent; border-left: none;
+                padding: 20px;
+            }
+            .form-card {
+                background: var(--glass-bg);
+                backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+                border: 1px solid var(--glass-border);
+            }
+            .hero-content { display: none; }
+            .hero-deco { display: none; }
+            .digit-input { width: 56px; height: 64px; font-size: 24px; }
+            .toolbar-center { display: none; }
+            .btn-save span { display: none; }
+            .toolbar { padding: 0 8px; gap: 4px; }
+            .session-chip .chip-label { display: none; }
+            .chat-panel { width: 100%; }
+            .connection-status .status-label { display: none; }
         }
 
-        html:not(.dark) #editing-layer { caret-color: #333; }
+        @media (min-width: 769px) {
+            .btn-save span { display: inline; }
+        }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-darkBg text-slate-800 dark:text-slate-200 min-h-screen font-sans overflow-hidden selection:bg-primary selection:text-white transition-colors duration-300">
+<body>
 
-    <section id="landingScreen" class="screen fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-            <div class="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/20 rounded-full blur-[100px] animate-pulse"></div>
+    <!-- ============================================================
+         LANDING SCREEN
+         ============================================================ -->
+    <section id="landingScreen" class="landing">
+        <div class="landing-hero">
+            <div class="hero-grid"></div>
+            <div class="hero-glow"></div>
+            <div class="hero-deco">
+                <span class="hero-deco-line">const pad = new SyncPad({ realtime: true });</span>
+                <span class="hero-deco-line">await peer.connect(roomCode);</span>
+                <span class="hero-deco-line">editor.sync({ encrypted: true, p2p: true });</span>
+                <span class="hero-deco-line">export default function collaborate() {</span>
+                <span class="hero-deco-line">return { content, cursor, language };</span>
+                <span class="hero-deco-line">socket.on('change', (delta) => apply(delta));</span>
+            </div>
+            <div class="hero-content">
+                <div class="hero-badge">Multipurpose Pad</div>
+                <h1>Sync<span>Pad</span></h1>
+                <p class="hero-tagline">Share text, code, and ideas in real-time.<br>Peer-to-peer. No servers. No sign-up.</p>
+                <div class="hero-features">
+                    <span class="pill"><i class="fa-solid fa-lock"></i> Encrypted</span>
+                    <span class="pill"><i class="fa-solid fa-bolt"></i> Real-time</span>
+                    <span class="pill"><i class="fa-solid fa-code"></i> Syntax Highlight</span>
+                </div>
+            </div>
         </div>
 
-        <div class="w-full max-w-md glass-panel p-8 rounded-3xl shadow-2xl animate-slide-up relative z-10">
-            <div class="text-center mb-8 relative">
-                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/30 mb-4">
-                    <i class="fa-solid fa-code text-2xl text-white"></i>
+        <div class="landing-form-section">
+            <div class="form-card">
+                <div class="form-header">
+                    <div class="form-logo"><i class="fa-solid fa-paper-plane"></i></div>
+                    <h2>Get Started</h2>
+                    <p>Create or join a room to begin</p>
                 </div>
-                <h1 class="text-3xl font-bold tracking-tight mb-2">SyncPad <span class="text-primary">v11</span></h1>
-                <p class="text-sm opacity-60">Pixel-Perfect Editor</p>
-                <button onclick="toggleTheme()" class="absolute top-0 right-0 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                    <i class="fa-solid fa-moon dark:hidden"></i>
-                    <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
-                </button>
-            </div>
 
-            <div class="flex p-1 bg-black/5 dark:bg-white/5 rounded-xl mb-6">
-                <button onclick="switchTab('host')" id="btn-host" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all bg-white dark:bg-slate-700 shadow-sm">Host</button>
-                <button onclick="switchTab('join')" id="btn-join" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all opacity-60 hover:opacity-100">Join</button>
-            </div>
+                <div class="tab-bar">
+                    <button class="active" onclick="switchTab('host')">Create Room</button>
+                    <button onclick="switchTab('join')">Join Room</button>
+                    <div class="tab-indicator" id="tabIndicator"></div>
+                </div>
 
-            <div id="form-host" class="space-y-4">
-                <div class="relative">
-                    <label class="text-xs font-bold uppercase tracking-wider opacity-50 ml-1 mb-1 block">Your Room Code</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="hostCodeInput" maxlength="4" class="w-full bg-black/5 dark:bg-black/20 border border-transparent focus:border-primary rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] transition-all" placeholder="----">
-                        <button onclick="generateRandomCode()" class="px-4 rounded-xl bg-black/5 dark:bg-white/5 hover:text-primary transition-colors"><i class="fa-solid fa-dice"></i></button>
+                <div id="form-host" class="tab-content active">
+                    <label class="form-label">Your Room Code</label>
+                    <div class="digit-group" id="hostDigits">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
                     </div>
+                    <button class="btn-regenerate" onclick="generateRandomCode('hostDigits')">
+                        <i class="fa-solid fa-arrows-rotate"></i> Regenerate
+                    </button>
+                    <button class="btn-primary" id="hostStartBtn" onclick="initHost()">
+                        <i class="fa-solid fa-rocket"></i> Start Session
+                    </button>
                 </div>
-                <button onclick="initHost()" class="w-full py-4 rounded-xl bg-primary hover:bg-indigo-500 text-white font-bold text-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">Start Session</button>
-            </div>
 
-            <div id="form-join" class="space-y-4 hidden">
-                <div>
-                    <label class="text-xs font-bold uppercase tracking-wider opacity-50 ml-1 mb-1 block">Enter Room Code</label>
-                    <input type="text" id="joinCodeInput" maxlength="4" class="w-full bg-black/5 dark:bg-black/20 border border-transparent focus:border-primary rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] transition-all" placeholder="0000">
+                <div id="form-join" class="tab-content">
+                    <label class="form-label">Enter Room Code</label>
+                    <div class="digit-group" id="joinDigits">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        <input class="digit-input" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                    </div>
+                    <button class="btn-secondary" id="joinConnectBtn" onclick="initGuest()">
+                        <i class="fa-solid fa-plug"></i> Connect Now
+                    </button>
                 </div>
-                <button onclick="initGuest()" class="w-full py-4 rounded-xl bg-secondary hover:bg-purple-600 text-white font-bold text-lg shadow-lg shadow-secondary/30 transition-all active:scale-[0.98]">Connect Now</button>
+
+                <div class="form-footer">
+                    <span class="version">SyncPad v12</span>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                        <i class="fa-solid fa-circle-half-stroke"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </section>
 
-    <section id="editorScreen" class="screen fixed inset-0 z-0 flex flex-col opacity-0 pointer-events-none scale-95">
-        
-        <nav class="h-14 px-3 md:px-6 flex items-center justify-between border-b border-gray-200 dark:border-slate-800 bg-white/90 dark:bg-darkBg/90 backdrop-blur-md z-20">
-            <div class="flex items-center gap-2 md:gap-4">
-                <div class="flex items-center gap-2">
-                    <div id="connectionDot" class="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
-                    <span class="font-bold text-lg hidden sm:block">SyncPad</span>
+    <!-- ============================================================
+         EDITOR SCREEN
+         ============================================================ -->
+    <section id="editorScreen" class="editor-screen">
+        <nav class="toolbar">
+            <div class="toolbar-section toolbar-left">
+                <span class="brand-mark">SP</span>
+                <div class="connection-status">
+                    <span class="status-dot waiting" id="statusDot"></span>
+                    <span class="status-label" id="statusLabel">Waiting</span>
+                    <button id="collaboratorListBtn" onclick="toggleCollaboratorsModal()" title="View Collaborators" style="display: none; background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 12px; padding: 2px 4px; display: inline-flex; align-items: center; justify-content: center; outline: none; transition: color var(--transition);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-2)'">
+                        <i class="fa-solid fa-eye" style="margin-left: 2px;"></i>
+                    </button>
                 </div>
-                <button onclick="copyMagicLink()" class="group px-2 py-1 rounded-md bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 font-mono text-xs md:text-sm hover:border-primary transition-colors flex items-center gap-2" title="Copy Magic Link">
-                    <span class="opacity-50">ID:</span>
-                    <span id="displaySessionId" class="font-bold text-primary">----</span>
-                    <i class="fa-solid fa-link text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                <button class="session-chip" onclick="copyMagicLink()" title="Copy invite link">
+                    <span class="chip-label">Room</span>
+                    <span class="chip-code" id="displaySessionId">----</span>
+                    <i class="fa-solid fa-link chip-icon"></i>
                 </button>
             </div>
 
-            <div class="flex items-center gap-1 md:gap-2">
-                <button id="lockBtn" onclick="toggleLock()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all hidden">
-                    <i id="lockIcon" class="fa-solid fa-lock-open text-green-500 text-sm"></i>
+            <div class="toolbar-section toolbar-center">
+                <input class="filename-input" id="filenameInput" type="text" value="untitled" spellcheck="false">
+                <select class="language-select" id="languageSelect" onchange="changeLanguage(this.value)">
+                    <option value="plaintext">Plain Text</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="python">Python</option>
+                    <option value="markup">HTML</option>
+                    <option value="css">CSS</option>
+                    <option value="json">JSON</option>
+                    <option value="markdown">Markdown</option>
+                    <option value="bash">Shell</option>
+                    <option value="sql">SQL</option>
+                    <option value="java">Java</option>
+                    <option value="c">C</option>
+                    <option value="cpp">C++</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                    <option value="ruby">Ruby</option>
+                    <option value="php">PHP</option>
+                    <option value="yaml">YAML</option>
+                    <option value="xml">XML</option>
+                </select>
+            </div>
+
+            <div class="toolbar-section toolbar-right">
+                <div class="toolbar-actions">
+                    <button class="toolbar-btn" onclick="copyAll()" title="Copy All"><i class="fa-regular fa-copy"></i></button>
+                    <button class="toolbar-btn" onclick="pasteContent()" title="Paste"><i class="fa-regular fa-clipboard"></i></button>
+                    <div class="toolbar-divider"></div>
+                    <button class="toolbar-btn" id="lockBtn" onclick="toggleLock()" title="Lock Guest" style="display:none">
+                        <i id="lockIcon" class="fa-solid fa-lock" style="color:var(--red)"></i>
+                    </button>
+                    <button class="toolbar-btn" onclick="toggleTheme()" title="Toggle Theme">
+                        <i class="fa-solid fa-circle-half-stroke"></i>
+                    </button>
+                    <button class="toolbar-btn" id="chatToggleBtn" onclick="toggleChat()" title="Chat">
+                        <i class="fa-regular fa-comment-dots"></i>
+                        <span class="badge" id="chatBadge">0</span>
+                    </button>
+                </div>
+                <div class="toolbar-divider"></div>
+                <button class="btn-save" onclick="saveFile()">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Save</span>
                 </button>
-                <button onclick="copyAll()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all opacity-70 hover:opacity-100">
-                    <i class="fa-regular fa-copy text-sm"></i>
-                </button>
-                <button onclick="pasteContent()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all opacity-70 hover:opacity-100">
-                    <i class="fa-regular fa-clipboard text-sm"></i>
-                </button>
-                <button onclick="toggleTheme()" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all">
-                    <i class="fa-solid fa-moon dark:hidden text-sm"></i>
-                    <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-sm"></i>
-                </button>
-                <button onclick="toggleChat()" class="relative w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center transition-all">
-                    <i class="fa-regular fa-comments text-sm"></i>
-                    <span id="chatBadge" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full hidden"></span>
-                </button>
-                <button onclick="saveFile()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all active:scale-95 text-xs font-bold ml-1">
-                    SAVE
-                </button>
-                <button onclick="endSession()" class="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all ml-1">
-                    <i class="fa-solid fa-power-off text-sm"></i>
+                <button class="btn-end" onclick="endSession()" title="End Session">
+                    <i class="fa-solid fa-power-off"></i>
                 </button>
             </div>
         </nav>
 
-        <div class="flex-1 relative flex overflow-hidden">
-            <div id="editor-container" class="flex-1 bg-white dark:bg-[#2d2d2d] transition-colors relative">
-                <pre id="highlighting-layer" aria-hidden="true" class="editor-layer"><code class="language-javascript" id="highlighting-content"></code></pre>
-                <textarea id="editing-layer" class="editor-layer" spellcheck="false" oninput="triggerLocalUpdate(); syncScroll();" onscroll="syncScroll();" onkeydown="checkTab(event)" placeholder="// Paste code here or start typing..."></textarea>
+        <div class="editor-body">
+            <div class="editor-main">
+                <div id="editor-container">
+                    <pre id="highlighting-layer" aria-hidden="true" class="editor-layer"><code class="language-plaintext" id="highlighting-content"></code></pre>
+                    <textarea id="editing-layer" class="editor-layer" spellcheck="false"
+                        oninput="triggerLocalUpdate()"
+                        onscroll="syncScroll()"
+                        onkeydown="handleKeyDown(event)"
+                        onkeyup="updateCursorInfo()"
+                        onclick="updateCursorInfo()"
+                        placeholder="Start typing, paste text, or share code..."></textarea>
+                </div>
 
-                <div id="lockBadge" class="absolute bottom-6 right-6 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-xl text-xs font-bold hidden pointer-events-none z-30 transition-all flex items-center gap-2 backdrop-blur-sm">
+                <div class="lock-badge" id="lockBadge">
                     <i class="fa-solid fa-lock"></i>
-                    <span>READ ONLY MODE</span>
+                    <span>READ ONLY</span>
                 </div>
             </div>
 
-            <div id="chatPanel" class="w-80 border-l border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex flex-col transition-all duration-300 transform translate-x-full absolute right-0 top-0 h-full z-40 shadow-xl">
-                <div class="p-4 border-b border-gray-200 dark:border-slate-700 font-bold text-sm flex justify-between items-center">
-                    <span>Session Chat</span>
-                    <button onclick="toggleChat()" class="text-xs opacity-50 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
+            <div class="chat-panel" id="chatPanel">
+                <div class="chat-header">
+                    <span class="chat-title"><i class="fa-solid fa-message"></i> Chat</span>
+                    <button class="chat-close" onclick="toggleChat()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
-                <div class="p-3 border-t border-gray-200 dark:border-slate-700">
-                    <form onsubmit="sendChat(event)" class="flex gap-2">
-                        <input type="text" id="chatInput" placeholder="Type..." class="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
-                        <button type="submit" class="p-2 rounded-lg bg-primary text-white hover:bg-primary/90"><i class="fa-solid fa-paper-plane text-xs"></i></button>
-                    </form>
-                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <form class="chat-input-form" onsubmit="sendChat(event)">
+                    <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
+                    <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div>
+                <span id="cursorInfo">Ln 1, Col 1</span>
+                <span class="status-sep">|</span>
+                <span id="charCount">0 chars</span>
+                <span class="status-sep">|</span>
+                <span id="wordCount">0 words</span>
+            </div>
+            <div>
+                <span id="langDisplay">Plain Text</span>
+                <span class="status-sep">|</span>
+                <span class="status-connection" id="connectionDisplay">
+                    <span class="status-dot-small" id="statusDotSmall"></span>
+                    <span id="connectionLabel">Disconnected</span>
+                </span>
             </div>
         </div>
     </section>
 
-    <div id="approvalModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
-        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 animate-slide-up text-center border border-white/10">
-            <div class="w-14 h-14 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fa-solid fa-user-lock"></i></div>
-            <h3 class="text-xl font-bold mb-1">Incoming Connection</h3>
-            <p class="text-sm opacity-60 mb-6">Someone wants to join your session.</p>
-            <div class="flex gap-3">
-                <button onclick="handleApproval(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 font-medium">Deny</button>
-                <button onclick="handleApproval(true)" class="flex-1 py-2.5 rounded-xl bg-primary hover:bg-indigo-500 text-white font-bold shadow-lg shadow-primary/20">Allow</button>
+    <!-- ============================================================
+         APPROVAL MODAL
+         ============================================================ -->
+    <div class="modal-overlay" id="approvalModal">
+        <div class="modal">
+            <div class="modal-icon warning"><i class="fa-solid fa-user-shield"></i></div>
+            <h3>Connection Request</h3>
+            <p>Someone wants to join your session.</p>
+            <div class="modal-actions">
+                <button class="btn-outline" onclick="handleApproval(false)">Deny</button>
+                <button class="btn-primary" onclick="handleApproval(true)">
+                    <i class="fa-solid fa-check"></i> Allow
+                </button>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full bg-slate-800 text-white shadow-xl opacity-0 transition-all duration-300 pointer-events-none z-[110] text-sm flex items-center gap-2 translate-y-10 border border-white/10">
-        <i class="fa-solid fa-circle-info text-primary" id="toastIcon"></i>
-        <span id="toastMsg">Notification</span>
+    <!-- ============================================================
+         COLLABORATORS MODAL
+         ============================================================ -->
+    <div class="modal-overlay" id="collaboratorsModal">
+        <div class="modal" style="max-width: 400px; text-align: left; padding: 28px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-0);">Active Collaborators</h3>
+                <button onclick="toggleCollaboratorsModal(false)" style="background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 4px; border-radius: var(--radius-sm);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-2)'">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="collaboratorListContainer" style="max-height: 240px; overflow-y: auto; margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px;">
+                <!-- Dynamic List -->
+            </div>
+            <button class="btn-primary" onclick="toggleCollaboratorsModal(false)" style="padding: 12px; font-size: 14px;">Close</button>
+        </div>
     </div>
 
-    <script>
-        const PREFIX = "syncpad-v11-wrap-";
-        const STORAGE_KEY = "syncpad_v11_content";
-        let peer = null, conn = null, pendingConn = null;
-        let isHost = false, isChatOpen = false;
+    <!-- ============================================================
+         TOAST CONTAINER
+         ============================================================ -->
+    <div id="toastContainer" class="toast-container"></div>
 
+
+    <!-- ============================================================
+         JAVASCRIPT
+         ============================================================ -->
+    <script>
+        /* ============================================================
+           STATE
+           ============================================================ */
+        const PREFIX = "syncpad-v12-";
+        const STORAGE_KEY = "syncpad_v12_content";
+        let peer = null, conn = null, pendingConn = null;
+        let conns = []; // Active guest connections (for host)
+        let pendingConns = []; // Pending guest connections queue
+        let roomPeers = []; // For guest view of other guests in room
+        let isEndingSession = false; // Flag to prevent connection callbacks on session end
+        let isHost = false, isChatOpen = false, isLocked = true;
+        let currentLang = 'plaintext';
+
+        /* ============================================================
+           BROADCAST HELPER
+           ============================================================ */
+        function broadcast(data, excludeConn = null) {
+            conns.forEach(c => {
+                if (c.open && c !== excludeConn) {
+                    c.send(data);
+                }
+            });
+        }
+        let unreadCount = 0;
+        let sessionCode = '';
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT = 3;
+
+        /* ============================================================
+           DOM REFS
+           ============================================================ */
         const editingLayer = document.getElementById('editing-layer');
         const highlightingContent = document.getElementById('highlighting-content');
-        
-        // --- UTILITIES ---
-        
+
+        /* ============================================================
+           LANGUAGE MAP
+           ============================================================ */
+        const LANG_EXTENSIONS = {
+            plaintext: '.txt', javascript: '.js', typescript: '.ts', python: '.py',
+            markup: '.html', css: '.css', json: '.json', markdown: '.md',
+            bash: '.sh', sql: '.sql', java: '.java', c: '.c', cpp: '.cpp',
+            go: '.go', rust: '.rs', ruby: '.rb', php: '.php', yaml: '.yml', xml: '.xml'
+        };
+        const LANG_LABELS = {
+            plaintext: 'Plain Text', javascript: 'JavaScript', typescript: 'TypeScript',
+            python: 'Python', markup: 'HTML', css: 'CSS', json: 'JSON',
+            markdown: 'Markdown', bash: 'Shell', sql: 'SQL', java: 'Java',
+            c: 'C', cpp: 'C++', go: 'Go', rust: 'Rust', ruby: 'Ruby',
+            php: 'PHP', yaml: 'YAML', xml: 'XML'
+        };
+
+        /* ============================================================
+           UTILITIES
+           ============================================================ */
         function debounce(func, wait) {
             let timeout;
             return function(...args) {
-                const context = this;
                 clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(context, args), wait);
+                timeout = setTimeout(() => func.apply(this, args), wait);
             };
         }
 
+        function getTime() {
+            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        /* ============================================================
+           HIGHLIGHTING
+           ============================================================ */
         function updateHighlighting(text) {
-            if(text && text[text.length-1] === "\n") text += " "; 
-            highlightingContent.textContent = text || ""; 
-            if (window.Prism) {
+            if (text && text[text.length - 1] === "\n") text += " ";
+            highlightingContent.textContent = text || "";
+            if (currentLang !== 'plaintext' && window.Prism) {
                 Prism.highlightElement(highlightingContent);
             }
         }
 
         function syncScroll() {
-            const highlighter = document.getElementById('highlighting-layer');
-            highlighter.scrollTop = editingLayer.scrollTop;
-            highlighter.scrollLeft = editingLayer.scrollLeft;
+            const hl = document.getElementById('highlighting-layer');
+            hl.scrollTop = editingLayer.scrollTop;
+            hl.scrollLeft = editingLayer.scrollLeft;
         }
 
-        function checkTab(e) {
+        /* ============================================================
+           LANGUAGE
+           ============================================================ */
+        function changeLanguage(lang) {
+            currentLang = lang;
+            highlightingContent.className = lang === 'plaintext' ? '' : `language-${lang}`;
+            document.getElementById('langDisplay').textContent = LANG_LABELS[lang] || lang;
+            updateHighlighting(editingLayer.value);
+            if (isHost) {
+                broadcast({ type: 'LANG', lang });
+            } else if (conn && conn.open) {
+                conn.send({ type: 'LANG', lang });
+            }
+        }
+
+        /* ============================================================
+           DIGIT INPUTS
+           ============================================================ */
+        function setupDigitInputs(groupId) {
+            const inputs = document.querySelectorAll(`#${groupId} .digit-input`);
+            inputs.forEach((input, i) => {
+                input.addEventListener('input', (e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    e.target.value = val;
+                    if (val && i < inputs.length - 1) inputs[i + 1].focus();
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !e.target.value && i > 0) {
+                        inputs[i - 1].focus();
+                        inputs[i - 1].value = '';
+                    }
+                });
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const paste = (e.clipboardData.getData('text')).replace(/\D/g, '').slice(0, 4);
+                    [...paste].forEach((char, j) => {
+                        if (inputs[j]) inputs[j].value = char;
+                    });
+                    const next = Math.min(paste.length, inputs.length) - 1;
+                    if (next >= 0) inputs[next].focus();
+                });
+                input.addEventListener('focus', () => input.select());
+            });
+        }
+
+        function getCodeFromDigits(groupId) {
+            return [...document.querySelectorAll(`#${groupId} .digit-input`)].map(i => i.value).join('');
+        }
+
+        function setCodeToDigits(groupId, code) {
+            const inputs = document.querySelectorAll(`#${groupId} .digit-input`);
+            [...code].forEach((char, i) => { if (inputs[i]) inputs[i].value = char; });
+        }
+
+        function shakeDigits(groupId) {
+            document.querySelectorAll(`#${groupId} .digit-input`).forEach(el => {
+                el.classList.add('shake');
+                setTimeout(() => el.classList.remove('shake'), 400);
+            });
+        }
+
+        /* ============================================================
+           TABS
+           ============================================================ */
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-bar button').forEach((btn, i) => {
+                btn.classList.toggle('active', (tab === 'host' && i === 0) || (tab === 'join' && i === 1));
+            });
+            document.getElementById('tabIndicator').classList.toggle('right', tab === 'join');
+            document.getElementById('form-host').classList.toggle('active', tab === 'host');
+            document.getElementById('form-join').classList.toggle('active', tab === 'join');
+        }
+
+        /* ============================================================
+           THEME
+           ============================================================ */
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        /* ============================================================
+           RANDOM CODE GENERATOR
+           ============================================================ */
+        function generateRandomCode(groupId = 'hostDigits') {
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            setCodeToDigits(groupId, code);
+        }
+
+        /* ============================================================
+           HOST LOGIC
+           ============================================================ */
+        function initHost() {
+            const code = getCodeFromDigits('hostDigits');
+            if (code.length !== 4) { shakeDigits('hostDigits'); return showToast("Enter a 4-digit code", "error"); }
+
+            isHost = true;
+            sessionCode = code;
+            sessionStorage.setItem('active_session', JSON.stringify({ isHost: true, code: code }));
+            document.getElementById('lockBtn').style.display = '';
+
+            const btn = document.getElementById('hostStartBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="connecting-spinner"></span> Starting...';
+
+            if (peer) peer.destroy();
+            peer = new Peer(PREFIX + code);
+
+            peer.on('open', () => {
+                showWorkspace(code);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Start Session';
+                setStatusUI('waiting', 'Waiting');
+                showToast("Session started — share the code!", "success");
+            });
+
+            peer.on('error', (err) => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Start Session';
+                if (err.type === 'unavailable-id') showToast(`Code ${code} is already in use`, "error");
+                else showToast("Connection error", "error");
+            });
+
+            peer.on('connection', (c) => {
+                if (!isHost) { c.close(); return; }
+                // DoS Protection: Limit queue size to prevent screen-blocking modal spam
+                if (pendingConns.length >= 5) {
+                    c.close();
+                    return;
+                }
+                pendingConns.push(c);
+                c.on('close', () => {
+                    const idx = pendingConns.indexOf(c);
+                    if (idx > -1) {
+                        pendingConns.splice(idx, 1);
+                        if (idx === 0) {
+                            document.getElementById('approvalModal').classList.remove('visible');
+                            showNextPendingConnection();
+                        }
+                    }
+                });
+                showNextPendingConnection();
+            });
+        }
+
+        function showNextPendingConnection() {
+            const modal = document.getElementById('approvalModal');
+            if (modal.classList.contains('visible') || pendingConns.length === 0) return;
+
+            const c = pendingConns[0];
+            const modalP = document.querySelector('#approvalModal p');
+            const peerIdShort = c.peer.substring(c.peer.lastIndexOf('-') + 1);
+            modalP.textContent = `A collaborator (ID: ${peerIdShort}) wants to join your session.`;
+            modal.classList.add('visible');
+        }
+
+        function handleApproval(allow) {
+            const modal = document.getElementById('approvalModal');
+            modal.classList.remove('visible');
+
+            if (pendingConns.length === 0) return;
+            const c = pendingConns.shift();
+
+            if (allow && c) {
+                conns.push(c);
+                setupConnection(c);
+                setTimeout(() => {
+                    if (c && c.open) {
+                        c.send({ type: 'SYNC', content: editingLayer.value });
+                        c.send({ type: 'LANG', lang: currentLang });
+                        c.send({ type: 'FNAME', name: document.getElementById('filenameInput').value });
+                        c.send({ type: 'LOCK', locked: isLocked });
+                        addSystemMessage("Collaborator connected");
+                    }
+                    updateStatusUI();
+                    broadcastPeerList();
+                }, 500);
+            } else {
+                if (c) c.close();
+            }
+
+            // Check if there are more pending requests after a brief delay
+            setTimeout(showNextPendingConnection, 200);
+        }
+
+        /* ============================================================
+           GUEST LOGIC
+           ============================================================ */
+        function initGuest() {
+            const code = getCodeFromDigits('joinDigits');
+            if (code.length !== 4) { shakeDigits('joinDigits'); return showToast("Enter a 4-digit code", "error"); }
+
+            isHost = false;
+            sessionCode = code;
+            sessionStorage.setItem('active_session', JSON.stringify({ isHost: false, code: code }));
+            document.getElementById('lockBtn').style.display = 'none';
+
+            // Default guest to locked state while connecting
+            editingLayer.readOnly = true;
+            document.getElementById('lockBadge').classList.add('visible');
+
+            const btn = document.getElementById('joinConnectBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="connecting-spinner"></span> Waiting for host...';
+
+            if (peer) peer.destroy();
+            peer = new Peer();
+
+            peer.on('open', () => {
+                const c = peer.connect(PREFIX + code);
+
+                c.on('open', () => showToast("Request sent to host..."));
+
+                c.on('data', (data) => {
+                    if (!conn) {
+                        conn = c;
+                        showWorkspace(code);
+                        updateStatusUI();
+                        showToast("Connected securely", "success");
+                        addSystemMessage("Connected to host");
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
+                    }
+                    handleData(data);
+                });
+
+                c.on('close', () => {
+                    handleDisconnect(c);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
+                    if (!conn) showToast("Connection denied or closed", "error");
+                });
+
+                c.on('error', () => {
+                    showToast("Failed to connect", "error");
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
+                });
+            });
+
+            peer.on('error', () => {
+                showToast("Network error", "error");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
+            });
+        }
+
+        /* ============================================================
+           CONNECTION MANAGEMENT
+           ============================================================ */
+        function setupConnection(c) {
+            c.on('data', (data) => handleData(data, c));
+            c.on('close', () => {
+                handleDisconnect(c);
+                addSystemMessage("Peer disconnected");
+            });
+            updateStatusUI();
+        }
+
+        function updateStatusUI() {
+            if (isHost) {
+                const count = conns.filter(c => c.open).length;
+                if (count === 0) {
+                    setStatusUI('waiting', 'Waiting');
+                } else {
+                    setStatusUI('connected', `${count} collaborator${count > 1 ? 's' : ''}`);
+                }
+            } else {
+                if (conn && conn.open) {
+                    setStatusUI('connected', 'Connected');
+                    reconnectAttempts = 0;
+                } else {
+                    setStatusUI('disconnected', 'Disconnected');
+                }
+            }
+            updateCollaboratorButtonVisibility();
+        }
+
+        function handleDisconnect(c) {
+            if (isEndingSession) return;
+            if (isHost) {
+                const idx = conns.indexOf(c);
+                if (idx > -1) {
+                    conns.splice(idx, 1);
+                }
+                updateStatusUI();
+                broadcastPeerList();
+                showToast("Collaborator left", "info");
+            } else {
+                conn = null;
+                updateStatusUI();
+                showToast("Host disconnected", "error");
+                if (sessionCode) tryReconnect();
+            }
+        }
+
+        /* ============================================================
+           COLLABORATORS & KICK MANAGEMENT
+           ============================================================ */
+        function broadcastPeerList() {
+            if (!isHost) return;
+            const peerIds = conns.filter(c => c.open).map(c => c.peer.substring(c.peer.lastIndexOf('-') + 1));
+            broadcast({ type: 'PEERS', peers: peerIds });
+            updateCollaboratorButtonVisibility();
+        }
+
+        function updateCollaboratorButtonVisibility() {
+            const btn = document.getElementById('collaboratorListBtn');
+            if (!btn) return;
+            const hasPeers = isHost ? conns.filter(c => c.open).length > 0 : (roomPeers && roomPeers.length > 0);
+            if (hasPeers || (conn && conn.open)) {
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+                document.getElementById('collaboratorsModal').classList.remove('visible');
+            }
+        }
+
+        function toggleCollaboratorsModal(show) {
+            const modal = document.getElementById('collaboratorsModal');
+            if (show === undefined) {
+                show = !modal.classList.contains('visible');
+            }
+            if (show) {
+                populateCollaboratorList();
+                modal.classList.add('visible');
+            } else {
+                modal.classList.remove('visible');
+            }
+        }
+
+        function populateCollaboratorList() {
+            const container = document.getElementById('collaboratorListContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (isHost) {
+                const activeConns = conns.filter(c => c.open);
+                if (activeConns.length === 0) {
+                    container.innerHTML = '<div style="color: var(--text-2); font-size: 13px; text-align: center; padding: 10px 0;">No active collaborators.</div>';
+                    return;
+                }
+
+                activeConns.forEach((c) => {
+                    const peerIdShort = c.peer.substring(c.peer.lastIndexOf('-') + 1);
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-2); border-radius: var(--radius-sm); border: 1px solid var(--border);';
+                    
+                    row.innerHTML = `
+                        <span style="font-family: var(--font-mono); font-size: 13px; color: var(--text-0); display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-user" style="color: var(--accent);"></i> Guest #${peerIdShort}
+                        </span>
+                        <button onclick="kickCollaborator('${c.peer}')" class="btn-end" style="width: auto; height: auto; padding: 6px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border-radius: var(--radius-sm);" title="Kick Collaborator">
+                            <i class="fa-solid fa-user-slash"></i> Kick
+                        </button>
+                    `;
+                    container.appendChild(row);
+                });
+            } else {
+                const rowHost = document.createElement('div');
+                rowHost.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-2); border-radius: var(--radius-sm); border: 1px solid var(--border);';
+                rowHost.innerHTML = `
+                    <span style="font-family: var(--font-mono); font-size: 13px; color: var(--text-0); display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-crown" style="color: var(--amber);"></i> Host (Owner)
+                    </span>
+                `;
+                container.appendChild(rowHost);
+
+                if (roomPeers && roomPeers.length > 0) {
+                    roomPeers.forEach((peerId) => {
+                        const row = document.createElement('div');
+                        row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-2); border-radius: var(--radius-sm); border: 1px solid var(--border);';
+                        row.innerHTML = `
+                            <span style="font-family: var(--font-mono); font-size: 13px; color: var(--text-0); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-user" style="color: var(--text-2);"></i> Guest #${peerId}
+                            </span>
+                        `;
+                        container.appendChild(row);
+                    });
+                }
+            }
+        }
+
+        function kickCollaborator(peerId) {
+            if (!isHost) return;
+            const c = conns.find(conn => conn.peer === peerId);
+            if (c) {
+                c.send({ type: 'KICK' });
+                setTimeout(() => {
+                    c.close();
+                }, 100);
+                showToast("Collaborator kicked", "info");
+            }
+        }
+
+        function tryReconnect() {
+            if (reconnectAttempts >= MAX_RECONNECT || !peer || peer.destroyed) return;
+            reconnectAttempts++;
+            const delay = Math.pow(2, reconnectAttempts) * 1000;
+            showToast(`Reconnecting in ${delay/1000}s... (${reconnectAttempts}/${MAX_RECONNECT})`);
+            setTimeout(() => {
+                if (conn) return;
+                setStatusUI('waiting', 'Reconnecting...');
+                const c = peer.connect(PREFIX + sessionCode);
+                c.on('open', () => showToast("Reconnection request sent..."));
+                c.on('data', (data) => {
+                    if (!conn) {
+                        conn = c;
+                        updateStatusUI();
+                        showToast("Connected securely", "success");
+                        addSystemMessage("Reconnected");
+                    }
+                    handleData(data);
+                });
+                c.on('close', () => {
+                    if (!conn) tryReconnect();
+                });
+                c.on('error', () => tryReconnect());
+            }, delay);
+        }
+
+        function setStatusUI(state, label) {
+            const dot = document.getElementById('statusDot');
+            const dotSmall = document.getElementById('statusDotSmall');
+            dot.className = `status-dot ${state}`;
+            dotSmall.className = `status-dot-small ${state}`;
+            document.getElementById('statusLabel').textContent = label;
+            document.getElementById('connectionLabel').textContent = label;
+        }
+
+        /* ============================================================
+           DATA HANDLING
+           ============================================================ */
+        function handleData(data, fromConn) {
+            switch (data.type) {
+                case 'SYNC':
+                    if (editingLayer.value !== data.content) {
+                        const oldCursor = editingLayer.selectionStart;
+                        const oldLen = editingLayer.value.length;
+                        editingLayer.value = data.content;
+                        updateHighlighting(data.content);
+                        saveToLocal();
+                        const newLen = data.content.length;
+                        let newCursor = oldCursor + (newLen - oldLen);
+                        if (newCursor < 0) newCursor = 0;
+                        if (document.activeElement === editingLayer) {
+                            editingLayer.setSelectionRange(newCursor, newCursor);
+                        }
+                        updateCursorInfo();
+                    }
+                    if (isHost) {
+                        broadcast({ type: 'SYNC', content: data.content }, fromConn);
+                    }
+                    break;
+                case 'CHAT':
+                    addChatMessage(data.msg, false);
+                    if (!isChatOpen) {
+                        unreadCount++;
+                        const badge = document.getElementById('chatBadge');
+                        badge.textContent = unreadCount;
+                        badge.classList.add('visible');
+                        showToast(data.msg.length > 30 ? data.msg.substring(0, 30) + '...' : data.msg, 'chat');
+                    }
+                    if (isHost) {
+                        broadcast({ type: 'CHAT', msg: data.msg }, fromConn);
+                    }
+                    break;
+                case 'LOCK':
+                    if (!isHost) {
+                        editingLayer.readOnly = data.locked;
+                        const badge = document.getElementById('lockBadge');
+                        badge.classList.toggle('visible', data.locked);
+                        showToast(data.locked ? "Host locked editing" : "Editing unlocked", data.locked ? "error" : "success");
+                    }
+                    break;
+                case 'LANG':
+                    currentLang = data.lang;
+                    document.getElementById('languageSelect').value = data.lang;
+                    highlightingContent.className = data.lang === 'plaintext' ? '' : `language-${data.lang}`;
+                    document.getElementById('langDisplay').textContent = LANG_LABELS[data.lang] || data.lang;
+                    updateHighlighting(editingLayer.value);
+                    if (isHost) {
+                        broadcast({ type: 'LANG', lang: data.lang }, fromConn);
+                    }
+                    break;
+                case 'FNAME':
+                    document.getElementById('filenameInput').value = data.name;
+                    if (isHost) {
+                        broadcast({ type: 'FNAME', name: data.name }, fromConn);
+                    }
+                    break;
+                case 'PEERS':
+                    roomPeers = data.peers || [];
+                    updateCollaboratorButtonVisibility();
+                    break;
+                case 'KICK':
+                    endSession();
+                    showToast("You were kicked by the host", "error");
+                    break;
+            }
+        }
+
+        /* ============================================================
+           EDITOR EVENTS
+           ============================================================ */
+        function triggerLocalUpdate() {
+            updateHighlighting(editingLayer.value);
+            saveToLocal();
+            updateCursorInfo();
+            sendNetworkUpdate();
+        }
+
+        const sendNetworkUpdate = debounce(() => {
+            if (isHost) {
+                broadcast({ type: 'SYNC', content: editingLayer.value });
+            } else if (conn && conn.open) {
+                conn.send({ type: 'SYNC', content: editingLayer.value });
+            }
+        }, 250);
+
+        function handleKeyDown(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
                 const start = editingLayer.selectionStart;
@@ -280,255 +1730,60 @@
             }
         }
 
-        // --- CORE LOGIC ---
+        function updateCursorInfo() {
+            const val = editingLayer.value;
+            const pos = editingLayer.selectionStart;
+            const before = val.substring(0, pos);
+            const lines = before.split('\n');
+            const ln = lines.length;
+            const col = lines[lines.length - 1].length + 1;
+            document.getElementById('cursorInfo').textContent = `Ln ${ln}, Col ${col}`;
 
-        window.addEventListener('load', () => {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) { editingLayer.value = saved; updateHighlighting(saved); }
-            generateRandomCode();
-            
-            const urlParams = new URLSearchParams(window.location.search);
-            const joinCode = urlParams.get('join');
-            if (joinCode && joinCode.length === 4) {
-                switchTab('join');
-                document.getElementById('joinCodeInput').value = joinCode;
-            }
-        });
-
-        function saveToLocal() { localStorage.setItem(STORAGE_KEY, editingLayer.value); }
-
-        function switchTab(tab) {
-            const hostForm = document.getElementById('form-host');
-            const joinForm = document.getElementById('form-join');
-            const hostBtn = document.getElementById('btn-host');
-            const joinBtn = document.getElementById('btn-join');
-
-            if (tab === 'host') {
-                hostForm.classList.remove('hidden'); joinForm.classList.add('hidden');
-                hostBtn.classList.remove('opacity-60'); joinBtn.classList.add('opacity-60');
-                hostBtn.classList.add('bg-white', 'dark:bg-slate-700'); joinBtn.classList.remove('bg-white', 'dark:bg-slate-700');
-            } else {
-                joinForm.classList.remove('hidden'); hostForm.classList.add('hidden');
-                joinBtn.classList.remove('opacity-60'); hostBtn.classList.add('opacity-60');
-                joinBtn.classList.add('bg-white', 'dark:bg-slate-700'); hostBtn.classList.remove('bg-white', 'dark:bg-slate-700');
-            }
+            const totalChars = val.length;
+            const totalWords = val.trim() ? val.trim().split(/\s+/).length : 0;
+            document.getElementById('charCount').textContent = `${totalChars} chars`;
+            document.getElementById('wordCount').textContent = `${totalWords} words`;
         }
 
-        function generateRandomCode() {
-            document.getElementById('hostCodeInput').value = Math.floor(1000 + Math.random() * 9000).toString();
-        }
+        function saveToLocal() { sessionStorage.setItem(STORAGE_KEY, editingLayer.value); }
 
-        function toggleTheme() { document.documentElement.classList.toggle('dark'); }
-
-        // --- HOST LOGIC ---
-
-        function initHost() {
-            const code = document.getElementById('hostCodeInput').value;
-            if (code.length !== 4) return showToast("Code must be 4 digits", "error");
-
-            isHost = true;
-            document.getElementById('lockBtn').classList.remove('hidden');
-            
-            if(peer) peer.destroy();
-            peer = new Peer(PREFIX + code);
-
-            peer.on('open', (id) => {
-                showWorkspace(code);
-                document.getElementById('connectionDot').classList.add('animate-pulse');
-                showToast("Session Started");
-            });
-
-            peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') showToast(`Code ${code} is busy!`, "error");
-                else showToast("Connection Error", "error");
-            });
-
-            peer.on('connection', (c) => {
-                if (conn && conn.open) { c.close(); showToast("Blocked extra user"); return; }
-                pendingConn = c;
-                document.getElementById('approvalModal').classList.remove('hidden');
-                c.on('close', () => {
-                    document.getElementById('approvalModal').classList.add('hidden');
-                    pendingConn = null;
-                });
-            });
-        }
-
-        function handleApproval(allow) {
-            document.getElementById('approvalModal').classList.add('hidden');
-            if (allow && pendingConn) {
-                conn = pendingConn;
-                setupConnection(conn);
-                setTimeout(() => {
-                    if(conn.open) {
-                        conn.send({ type: 'SYNC', content: editingLayer.value });
-                        conn.send({ type: 'CHAT', msg: "Host accepted connection." });
-                    }
-                    setConnectedUI();
-                }, 500);
-            } else {
-                if(pendingConn) pendingConn.close(); pendingConn = null;
-            }
-        }
-
-        // --- GUEST LOGIC ---
-
-        function initGuest() {
-            const code = document.getElementById('joinCodeInput').value;
-            if (code.length !== 4) return showToast("Enter 4-digit Code", "error");
-
-            isHost = false;
-            document.getElementById('lockBtn').classList.add('hidden');
-            
-            const btn = document.querySelector('#form-join button');
-            const originalText = btn.innerText;
-            btn.innerText = "Waiting for Host...";
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-            if(peer) peer.destroy();
-            peer = new Peer();
-
-            peer.on('open', () => {
-                const c = peer.connect(PREFIX + code);
-                
-                c.on('open', () => showToast("Request sent..."));
-
-                c.on('data', (data) => {
-                    if(!conn) {
-                        conn = c;
-                        showWorkspace(code);
-                        setConnectedUI();
-                    }
-                    handleData(data);
-                });
-
-                c.on('close', () => {
-                    handleDisconnect();
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    if(!conn) showToast("Connection Denied/Closed", "error");
-                });
-                
-                c.on('error', (err) => {
-                    showToast("Failed to connect", "error");
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                });
-            });
-        }
-
-        function setupConnection(c) {
-            c.on('data', (data) => handleData(data));
-            c.on('close', () => handleDisconnect());
-            setConnectedUI();
-        }
-
-        function setConnectedUI() {
-            document.getElementById('connectionDot').classList.remove('bg-orange-500', 'bg-red-500', 'animate-pulse');
-            document.getElementById('connectionDot').classList.add('bg-green-500');
-            showToast("Connected Securely");
-        }
-
-        function handleDisconnect() {
-            document.getElementById('connectionDot').classList.remove('bg-green-500');
-            document.getElementById('connectionDot').classList.add('bg-red-500');
-            conn = null;
-            showToast("Disconnected", "error");
-        }
-
-        function handleData(data) {
-            switch(data.type) {
-                case 'SYNC':
-                    if (editingLayer.value !== data.content) {
-                        const oldCursor = editingLayer.selectionStart;
-                        const oldLen = editingLayer.value.length;
-                        
-                        editingLayer.value = data.content;
-                        updateHighlighting(data.content);
-                        saveToLocal();
-                        
-                        const newLen = data.content.length;
-                        let newCursor = oldCursor;
-                        if (newLen > oldLen) newCursor = oldCursor + (newLen - oldLen);
-                        
-                        if(document.activeElement === editingLayer) {
-                             editingLayer.setSelectionRange(newCursor, newCursor);
-                        }
-                    }
-                    break;
-                case 'CHAT':
-                    addChatMessage(data.msg, false);
-                    if(!isChatOpen) {
-                        document.getElementById('chatBadge').classList.remove('hidden');
-                        let preview = data.msg.length > 25 ? data.msg.substring(0, 25) + '...' : data.msg;
-                        showToast(`Msg: ${preview}`, 'chat');
-                    }
-                    break;
-                case 'LOCK':
-                    if(!isHost) {
-                        editingLayer.readOnly = data.locked; 
-                        
-                        const badge = document.getElementById('lockBadge');
-                        if(data.locked) {
-                            badge.classList.remove('hidden');
-                            showToast("Host Locked Editing", "error");
-                        } else {
-                            badge.classList.add('hidden');
-                            showToast("Editing Unlocked");
-                        }
-                    }
-                    break;
-            }
-        }
-
-        // --- EDITOR EVENTS ---
-
-        function triggerLocalUpdate() {
-            updateHighlighting(editingLayer.value);
-            saveToLocal();
-            sendNetworkUpdate();
-        }
-
-        const sendNetworkUpdate = debounce(() => {
-            if (conn && conn.open) {
-                conn.send({ type: 'SYNC', content: editingLayer.value });
-            }
-        }, 300);
-
-        // --- UI FUNCTIONS ---
-
+        /* ============================================================
+           UI TRANSITIONS
+           ============================================================ */
         function showWorkspace(id) {
-            document.getElementById('displaySessionId').innerText = id;
-            const landing = document.getElementById('landingScreen');
-            const workspace = document.getElementById('editorScreen');
-            landing.style.opacity = '0'; landing.style.pointerEvents = 'none';
+            document.getElementById('displaySessionId').textContent = id;
+            document.getElementById('landingScreen').classList.add('hidden');
             setTimeout(() => {
-                workspace.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
-                workspace.classList.add('opacity-100', 'scale-100');
-            }, 300);
+                document.getElementById('editorScreen').classList.add('visible');
+                editingLayer.focus();
+                updateCursorInfo();
+            }, 200);
         }
 
-        let isLocked = false;
+        /* ============================================================
+           LOCK
+           ============================================================ */
         function toggleLock() {
-            if(!isHost) return;
+            if (!isHost) return;
             isLocked = !isLocked;
             const icon = document.getElementById('lockIcon');
-            icon.className = isLocked ? "fa-solid fa-lock text-red-500" : "fa-solid fa-lock-open text-green-500";
-            if(conn && conn.open) conn.send({ type: 'LOCK', locked: isLocked });
-            showToast(isLocked ? "Guest Locked" : "Guest Unlocked");
+            icon.className = isLocked ? "fa-solid fa-lock" : "fa-solid fa-lock-open";
+            icon.style.color = isLocked ? "var(--red)" : "var(--green)";
+            broadcast({ type: 'LOCK', locked: isLocked });
+            showToast(isLocked ? "Guest locked" : "Guest unlocked", isLocked ? "error" : "success");
         }
 
+        /* ============================================================
+           CHAT
+           ============================================================ */
         function toggleChat() {
             isChatOpen = !isChatOpen;
-            const panel = document.getElementById('chatPanel');
-            if(isChatOpen) {
-                panel.classList.remove('translate-x-full');
-                document.getElementById('chatBadge').classList.add('hidden');
-            } else {
-                panel.classList.add('translate-x-full');
+            document.getElementById('chatPanel').classList.toggle('open', isChatOpen);
+            document.getElementById('chatToggleBtn').classList.toggle('active', isChatOpen);
+            if (isChatOpen) {
+                unreadCount = 0;
+                document.getElementById('chatBadge').classList.remove('visible');
+                document.getElementById('chatInput').focus();
             }
         }
 
@@ -536,106 +1791,222 @@
             e.preventDefault();
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
-            if(!msg) return;
+            if (!msg) return;
             addChatMessage(msg, true);
-            if(conn && conn.open) conn.send({ type: 'CHAT', msg: msg });
+            if (isHost) {
+                broadcast({ type: 'CHAT', msg });
+            } else if (conn && conn.open) {
+                conn.send({ type: 'CHAT', msg });
+            }
             input.value = "";
         }
 
         function addChatMessage(msg, isMe) {
             const container = document.getElementById('chatMessages');
             const div = document.createElement('div');
-            div.className = `chat-msg max-w-[80%] p-2.5 rounded-xl text-sm mb-2 ${isMe ? 'ml-auto bg-primary text-white rounded-tr-none' : 'mr-auto bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-tl-none'}`;
-            div.innerText = msg;
+            div.className = `chat-msg ${isMe ? 'me' : 'them'}`;
+            div.innerHTML = `${escapeHtml(msg)}<span class="msg-time">${getTime()}</span>`;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
         }
 
-        function copyMagicLink() {
-            const id = document.getElementById('displaySessionId').innerText;
-            const link = `${window.location.origin}${window.location.pathname}?join=${id}`;
-            navigator.clipboard.writeText(link);
-            showToast("Magic Link Copied!");
+        function addSystemMessage(msg) {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'chat-msg system';
+            div.textContent = `— ${msg} —`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
         }
 
-        function endSession() {
-            if (peer) { peer.destroy(); peer = null; }
-            if (conn) { conn.close(); conn = null; }
-            
-            editingLayer.value = ""; updateHighlighting("");
-            localStorage.removeItem(STORAGE_KEY);
-            isLocked = false;
-            editingLayer.readOnly = false; 
-            document.getElementById('lockBadge').classList.add('hidden'); 
-            document.getElementById('lockIcon').className = "fa-solid fa-lock-open text-green-500";
-            document.getElementById('chatMessages').innerHTML = "";
-
-            document.getElementById('connectionDot').classList.remove('bg-green-500', 'bg-red-500', 'animate-pulse');
-            document.getElementById('connectionDot').classList.add('bg-orange-500');
-
-            document.getElementById('editorScreen').classList.add('opacity-0', 'pointer-events-none', 'scale-95');
-            document.getElementById('editorScreen').classList.remove('opacity-100', 'scale-100');
-            
-            const btn = document.querySelector('#form-join button');
-            btn.innerText = "Connect Now";
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-
-            setTimeout(() => {
-                document.getElementById('landingScreen').style.opacity = '1'; 
-                document.getElementById('landingScreen').style.pointerEvents = 'auto';
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }, 300);
-            showToast("Session Cleared");
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
 
+        /* ============================================================
+           FILE OPERATIONS
+           ============================================================ */
         function saveFile() {
+            const filename = document.getElementById('filenameInput').value || 'untitled';
+            const ext = LANG_EXTENSIONS[currentLang] || '.txt';
+            const fullName = filename.includes('.') ? filename : filename + ext;
             const blob = new Blob([editingLayer.value], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = "syncpad.txt";
-            a.click();
+            a.href = url; a.download = fullName; a.click();
             URL.revokeObjectURL(url);
+            showToast(`Saved as ${fullName}`, "success");
         }
 
         function copyAll() {
-            editingLayer.select(); document.execCommand('copy');
-            window.getSelection().removeAllRanges(); showToast("Copied");
+            navigator.clipboard.writeText(editingLayer.value).then(() => showToast("Copied to clipboard", "success"));
         }
 
         async function pasteContent() {
-            if(editingLayer.readOnly) return showToast("Read Only Mode", "error");
+            if (editingLayer.readOnly) return showToast("Read-only mode", "error");
             try {
                 const text = await navigator.clipboard.readText();
                 const start = editingLayer.selectionStart;
                 const end = editingLayer.selectionEnd;
-                const val = editingLayer.value;
-                editingLayer.value = val.substring(0, start) + text + val.substring(end);
+                editingLayer.value = editingLayer.value.substring(0, start) + text + editingLayer.value.substring(end);
                 editingLayer.selectionStart = editingLayer.selectionEnd = start + text.length;
-                
                 triggerLocalUpdate();
                 syncScroll();
                 showToast("Pasted");
-            } catch(e) { showToast("Permission Denied", "error"); }
+            } catch (e) { showToast("Clipboard permission denied", "error"); }
         }
 
-        function showToast(msg, type = "info") {
-            const t = document.getElementById('toast');
-            const icon = document.getElementById('toastIcon');
-            document.getElementById('toastMsg').innerText = msg;
-            
-            if(type === 'chat') {
-                icon.className = "fa-solid fa-comment-dots text-purple-400";
-            } else if (type === 'error') {
-                icon.className = "fa-solid fa-circle-exclamation text-red-500";
+        function copyMagicLink() {
+            const id = document.getElementById('displaySessionId').textContent;
+            const link = `${window.location.origin}${window.location.pathname}?join=${id}`;
+            navigator.clipboard.writeText(link).then(() => showToast("Invite link copied!", "success"));
+        }
+
+        /* ============================================================
+           FILENAME SYNC
+           ============================================================ */
+        const syncFilename = debounce(() => {
+            if (isHost) {
+                broadcast({ type: 'FNAME', name: document.getElementById('filenameInput').value });
+            } else if (conn && conn.open) {
+                conn.send({ type: 'FNAME', name: document.getElementById('filenameInput').value });
+            }
+        }, 500);
+        document.getElementById('filenameInput').addEventListener('input', syncFilename);
+
+        /* ============================================================
+           END SESSION
+           ============================================================ */
+        function endSession() {
+            isEndingSession = true;
+            if (peer) { peer.destroy(); peer = null; }
+            if (conn) { conn.close(); conn = null; }
+            conns.forEach(c => { if (c && c.open) c.close(); });
+            conns = [];
+            pendingConns.forEach(c => { if (c && c.open) c.close(); });
+            pendingConns = [];
+            roomPeers = [];
+            sessionStorage.removeItem('active_session');
+
+            document.getElementById('collaboratorListBtn').style.display = 'none';
+            document.getElementById('collaboratorsModal').classList.remove('visible');
+
+            editingLayer.value = ""; updateHighlighting("");
+            sessionStorage.removeItem(STORAGE_KEY);
+            isLocked = true;
+            editingLayer.readOnly = false;
+            document.getElementById('lockBadge').classList.remove('visible');
+            document.getElementById('lockIcon').className = "fa-solid fa-lock";
+            document.getElementById('lockIcon').style.color = "var(--red)";
+            document.getElementById('chatMessages').innerHTML = "";
+            document.getElementById('filenameInput').value = 'untitled';
+            currentLang = 'plaintext';
+            document.getElementById('languageSelect').value = 'plaintext';
+            highlightingContent.className = '';
+            document.getElementById('langDisplay').textContent = 'Plain Text';
+            unreadCount = 0;
+            document.getElementById('chatBadge').classList.remove('visible');
+
+            if (isChatOpen) toggleChat();
+            setStatusUI('waiting', 'Waiting');
+            isEndingSession = false;
+
+            document.getElementById('editorScreen').classList.remove('visible');
+            setTimeout(() => {
+                document.getElementById('landingScreen').classList.remove('hidden');
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                const joinBtn = document.getElementById('joinConnectBtn');
+                joinBtn.disabled = false;
+                joinBtn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
+            }, 300);
+            showToast("Session ended");
+        }
+
+        /* ============================================================
+           TOASTS
+           ============================================================ */
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+
+            const iconMap = {
+                info: 'fa-circle-info', error: 'fa-circle-exclamation',
+                success: 'fa-circle-check', chat: 'fa-comment-dots'
+            };
+
+            toast.innerHTML = `
+                <i class="fa-solid ${iconMap[type] || iconMap.info} toast-icon ${type}"></i>
+                <span>${escapeHtml(msg)}</span>
+                <div class="toast-progress" style="${type === 'error' ? 'background:var(--red)' : ''}"></div>
+            `;
+            toast.style.position = 'relative';
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /* ============================================================
+           INIT
+           ============================================================ */
+        window.addEventListener('load', () => {
+            // Restore saved content
+            const saved = sessionStorage.getItem(STORAGE_KEY);
+            if (saved) { editingLayer.value = saved; updateHighlighting(saved); }
+
+            // Setup digit inputs
+            setupDigitInputs('hostDigits');
+            setupDigitInputs('joinDigits');
+
+            // Generate initial code
+            generateRandomCode('hostDigits');
+
+            // Check if there was an active session before reload
+            const activeSessionRaw = sessionStorage.getItem('active_session');
+            if (activeSessionRaw) {
+                try {
+                    const session = JSON.parse(activeSessionRaw);
+                    if (session && session.code) {
+                        if (session.isHost) {
+                            setCodeToDigits('hostDigits', session.code);
+                            initHost();
+                        } else {
+                            setCodeToDigits('joinDigits', session.code);
+                            initGuest();
+                        }
+                    }
+                } catch (e) {
+                    sessionStorage.removeItem('active_session');
+                }
             } else {
-                icon.className = "fa-solid fa-circle-info text-primary";
+                // Check for magic link if no active session
+                const urlParams = new URLSearchParams(window.location.search);
+                const joinCode = urlParams.get('join');
+                if (joinCode && joinCode.length === 4) {
+                    switchTab('join');
+                    setCodeToDigits('joinDigits', joinCode);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
             }
 
-            t.classList.remove('translate-y-10', 'opacity-0');
-            setTimeout(() => t.classList.add('translate-y-10', 'opacity-0'), 2500);
-        }
+            // Update cursor info
+            updateCursorInfo();
+        });
+
+        // Prevent accidental tab closing when inside the editor
+        window.addEventListener('beforeunload', (e) => {
+            const isEditorVisible = document.getElementById('editorScreen').classList.contains('visible');
+            if (isEditorVisible) {
+                e.preventDefault();
+                e.returnValue = ''; // Triggers browser standard warning dialog
+            }
+        });
     </script>
 </body>
 </html>
