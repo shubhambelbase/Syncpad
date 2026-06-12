@@ -65,24 +65,23 @@ SyncPad operates on a **P2P Hub-and-Spoke (Star) Topology**:
 * All communications are encrypted, direct, and zero-knowledge.
 
 ```mermaid
-graph TD
-    subgraph "Star Network (P2P Session)"
-        Host[⚡ Host Node - Owner]
-        GuestA[👤 Guest A]
-        GuestB[👤 Guest B]
-        GuestC[👤 Guest C]
+flowchart LR
+    Signaling["🌐 PeerJS Signaling Server"]
+    
+    subgraph Session["Star Network (P2P Session)"]
+        Host["⚡ Host Node - Owner"]
+        GuestA["👤 Guest A"]
+        GuestB["👤 Guest B"]
+        GuestC["👤 Guest C"]
+        
+        Host <-->|WebRTC Datachannel| GuestA
+        Host <-->|WebRTC Datachannel| GuestB
+        Host <-->|WebRTC Datachannel| GuestC
     end
-
-    Signaling[🌐 PeerJS Signaling Server]
     
     %% Handshake connections
     Host -.->|Initial registration| Signaling
     GuestA -.->|Join handshake| Signaling
-    
-    %% WebRTC direct connections
-    Host <-->|WebRTC Datachannel| GuestA
-    Host <-->|WebRTC Datachannel| GuestB
-    Host <-->|WebRTC Datachannel| GuestC
 
     %% Styling
     classDef hostStyle fill:#e11d48,stroke:#be123c,stroke-width:2px,color:#fff;
