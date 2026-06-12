@@ -66,7 +66,7 @@ SyncPad operates on a **P2P Hub-and-Spoke (Star) Topology**:
 
 ```mermaid
 graph TD
-    subgraph Star Network (P2P Session)
+    subgraph "Star Network (P2P Session)"
         Host[⚡ Host Node - Owner]
         GuestA[👤 Guest A]
         GuestB[👤 Guest B]
@@ -80,9 +80,9 @@ graph TD
     GuestA -.->|Join handshake| Signaling
     
     %% WebRTC direct connections
-    Host <===>|WebRTC Datachannel| GuestA
-    Host <===>|WebRTC Datachannel| GuestB
-    Host <===>|WebRTC Datachannel| GuestC
+    Host <-->|WebRTC Datachannel| GuestA
+    Host <-->|WebRTC Datachannel| GuestB
+    Host <-->|WebRTC Datachannel| GuestC
 
     %% Styling
     classDef hostStyle fill:#e11d48,stroke:#be123c,stroke-width:2px,color:#fff;
