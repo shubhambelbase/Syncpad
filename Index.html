@@ -1047,7 +1047,11 @@
                 </div>
                 <div class="chat-messages" id="chatMessages"></div>
                 <form class="chat-input-form" onsubmit="sendChat(event)">
-                    <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
+                    <input type="file" id="chatFileInput" style="display: none;" onchange="handleFileSelect(event)">
+                    <button type="button" onclick="document.getElementById('chatFileInput').click()" title="Share File" style="background: none; color: var(--text-2); border: 1px solid var(--border); border-radius: var(--radius-sm); width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all var(--transition);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-2)'">
+                        <i class="fa-solid fa-paperclip"></i>
+                    </button>
+                    <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off" style="flex: 1;">
                     <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>
             </div>
@@ -1634,6 +1638,25 @@
            ============================================================ */
         function handleData(data, fromConn) {
             switch (data.type) {
+                case 'FILE':
+                    addFileMessage(data, false);
+                    if (!isChatOpen) {
+                        unreadCount++;
+                        const badge = document.getElementById('chatBadge');
+                        badge.textContent = unreadCount;
+                        badge.classList.add('visible');
+                        showToast(`Shared file: ${data.name}`, 'chat');
+                    }
+                    if (isHost) {
+                        broadcast({
+                            type: 'FILE',
+                            name: data.name,
+                            size: data.size,
+                            mime: data.mime,
+                            data: data.data
+                        }, fromConn);
+                    }
+                    break;
                 case 'SYNC':
                     if (editingLayer.value !== data.content) {
                         const oldCursor = editingLayer.selectionStart;
@@ -1697,6 +1720,10 @@
                 case 'KICK':
                     endSession();
                     showToast("You were kicked by the host", "error");
+                    break;
+                case 'SHUTDOWN':
+                    endSession();
+                    showToast("Host ended the session", "info");
                     break;
             }
         }
@@ -1826,6 +1853,133 @@
         }
 
         /* ============================================================
+           P2P FILE SHARING
+           ============================================================ */
+        function handleFileSelect(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                sendFile(e.target.files[0]);
+                e.target.value = ''; // Reset file input
+            }
+        }
+
+        function sendFile(file) {
+            // Check connection
+            const isConnected = isHost ? conns.some(c => c.open) : (conn && conn.open);
+            if (!isConnected) return showToast("No active connection", "error");
+
+            // Size limit: 20MB
+            if (file.size > 20 * 1024 * 1024) {
+                return showToast("File size limit is 20MB", "error");
+            }
+
+            // Show temporary reading toast
+            showToast("Reading file...", "info");
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const payload = {
+                    type: 'FILE',
+                    name: file.name,
+                    size: file.size,
+                    mime: file.type || 'application/octet-stream',
+                    data: event.target.result // Base64 data URL
+                };
+
+                // Add to local chat
+                addFileMessage(payload, true);
+
+                // Send network update
+                if (isHost) {
+                    broadcast(payload);
+                } else if (conn && conn.open) {
+                    conn.send(payload);
+                }
+                showToast("File shared successfully", "success");
+            };
+            reader.onerror = function() {
+                showToast("Failed to read file", "error");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function addFileMessage(filePayload, isMe) {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = `chat-msg ${isMe ? 'me' : 'them'}`;
+            div.style.display = 'flex';
+            div.style.flexDirection = 'column';
+            div.style.gap = '8px';
+            div.style.maxWidth = '85%';
+
+            const sizeStr = formatBytes(filePayload.size);
+            const isImage = filePayload.mime.startsWith('image/');
+
+            let contentHtml = '';
+            if (isImage) {
+                contentHtml = `
+                    <img src="${filePayload.data}" style="max-width: 100%; max-height: 120px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--border);" alt="${escapeHtml(filePayload.name)}" />
+                `;
+            }
+
+            const rowHtml = `
+                ${contentHtml}
+                <div style="display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, 0.08); padding: 8px; border-radius: var(--radius-sm); min-width: 180px;">
+                    <i class="fa-solid fa-file-lines" style="font-size: 20px; color: ${isMe ? 'white' : 'var(--accent)'}; flex-shrink: 0;"></i>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="font-size: 12px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: ${isMe ? 'white' : 'var(--text-0)'};">${escapeHtml(filePayload.name)}</div>
+                        <div style="font-size: 10px; opacity: 0.8; color: ${isMe ? 'white' : 'var(--text-2)'};">${sizeStr}</div>
+                    </div>
+                    <button onclick="downloadSharedFile('${escapeHtml(filePayload.name)}', '${filePayload.data}')" style="background: none; border: none; color: ${isMe ? 'white' : 'var(--accent)'}; cursor: pointer; font-size: 14px; padding: 4px; display: flex; align-items: center; justify-content: center;" title="Download File">
+                        <i class="fa-solid fa-circle-down"></i>
+                    </button>
+                </div>
+                <span class="msg-time" style="${isMe ? 'color: white; opacity: 0.6;' : ''}">${getTime()}</span>
+            `;
+
+            div.innerHTML = rowHtml;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function downloadSharedFile(name, dataUrl) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = name;
+            a.click();
+            showToast(`Downloaded ${name}`, "success");
+        }
+
+        function setupDragAndDrop() {
+            const chatPanel = document.getElementById('chatPanel');
+            if (!chatPanel) return;
+
+            chatPanel.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                chatPanel.style.borderLeft = '2px dashed var(--accent)';
+            });
+
+            chatPanel.addEventListener('dragleave', () => {
+                chatPanel.style.borderLeft = '1px solid var(--border)';
+            });
+
+            chatPanel.addEventListener('drop', (e) => {
+                e.preventDefault();
+                chatPanel.style.borderLeft = '1px solid var(--border)';
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    sendFile(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        /* ============================================================
            FILE OPERATIONS
            ============================================================ */
         function saveFile() {
@@ -1881,48 +2035,54 @@
            ============================================================ */
         function endSession() {
             isEndingSession = true;
-            if (peer) { peer.destroy(); peer = null; }
-            if (conn) { conn.close(); conn = null; }
-            conns.forEach(c => { if (c && c.open) c.close(); });
-            conns = [];
-            pendingConns.forEach(c => { if (c && c.open) c.close(); });
-            pendingConns = [];
-            roomPeers = [];
-            sessionStorage.removeItem('active_session');
+            if (isHost) {
+                broadcast({ type: 'SHUTDOWN' });
+            }
 
-            document.getElementById('collaboratorListBtn').style.display = 'none';
-            document.getElementById('collaboratorsModal').classList.remove('visible');
-
-            editingLayer.value = ""; updateHighlighting("");
-            sessionStorage.removeItem(STORAGE_KEY);
-            isLocked = true;
-            editingLayer.readOnly = false;
-            document.getElementById('lockBadge').classList.remove('visible');
-            document.getElementById('lockIcon').className = "fa-solid fa-lock";
-            document.getElementById('lockIcon').style.color = "var(--red)";
-            document.getElementById('chatMessages').innerHTML = "";
-            document.getElementById('filenameInput').value = 'untitled';
-            currentLang = 'plaintext';
-            document.getElementById('languageSelect').value = 'plaintext';
-            highlightingContent.className = '';
-            document.getElementById('langDisplay').textContent = 'Plain Text';
-            unreadCount = 0;
-            document.getElementById('chatBadge').classList.remove('visible');
-
-            if (isChatOpen) toggleChat();
-            setStatusUI('waiting', 'Waiting');
-            isEndingSession = false;
-
-            document.getElementById('editorScreen').classList.remove('visible');
             setTimeout(() => {
-                document.getElementById('landingScreen').classList.remove('hidden');
-                window.history.replaceState({}, document.title, window.location.pathname);
+                if (peer) { peer.destroy(); peer = null; }
+                if (conn) { conn.close(); conn = null; }
+                conns.forEach(c => { if (c && c.open) c.close(); });
+                conns = [];
+                pendingConns.forEach(c => { if (c && c.open) c.close(); });
+                pendingConns = [];
+                roomPeers = [];
+                sessionStorage.removeItem('active_session');
 
-                const joinBtn = document.getElementById('joinConnectBtn');
-                joinBtn.disabled = false;
-                joinBtn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
-            }, 300);
-            showToast("Session ended");
+                document.getElementById('collaboratorListBtn').style.display = 'none';
+                document.getElementById('collaboratorsModal').classList.remove('visible');
+
+                editingLayer.value = ""; updateHighlighting("");
+                sessionStorage.removeItem(STORAGE_KEY);
+                isLocked = true;
+                editingLayer.readOnly = false;
+                document.getElementById('lockBadge').classList.remove('visible');
+                document.getElementById('lockIcon').className = "fa-solid fa-lock";
+                document.getElementById('lockIcon').style.color = "var(--red)";
+                document.getElementById('chatMessages').innerHTML = "";
+                document.getElementById('filenameInput').value = 'untitled';
+                currentLang = 'plaintext';
+                document.getElementById('languageSelect').value = 'plaintext';
+                highlightingContent.className = '';
+                document.getElementById('langDisplay').textContent = 'Plain Text';
+                unreadCount = 0;
+                document.getElementById('chatBadge').classList.remove('visible');
+
+                if (isChatOpen) toggleChat();
+                setStatusUI('waiting', 'Waiting');
+                isEndingSession = false;
+
+                document.getElementById('editorScreen').classList.remove('visible');
+                setTimeout(() => {
+                    document.getElementById('landingScreen').classList.remove('hidden');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+
+                    const joinBtn = document.getElementById('joinConnectBtn');
+                    joinBtn.disabled = false;
+                    joinBtn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect Now';
+                }, 300);
+                showToast("Session ended");
+            }, isHost ? 100 : 0);
         }
 
         /* ============================================================
@@ -1997,6 +2157,9 @@
 
             // Update cursor info
             updateCursorInfo();
+
+            // Setup drag and drop for files
+            setupDragAndDrop();
         });
 
         // Prevent accidental tab closing when inside the editor
