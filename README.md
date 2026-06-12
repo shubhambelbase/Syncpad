@@ -52,6 +52,7 @@ Built entirely in the flow state, SyncPad pushes the limits of client-side techn
 | **🔒 Host Approval & Locks:** You decide who connects, and can lock edits. | **💾 Zero-Trace Cache:** Caches to `sessionStorage` (erased on tab close). |
 | **🛠️ Self-Healing Session:** Recovers connections automatically on reloads. | **🚨 Leave Warnings:** Prevents data loss from accidental tab closes. |
 | **E2E Encryption:** Data & Chat flows directly via WebRTC data channels. | **🎨 Premium Red Theme:** Clean Light and deep Dark high-contrast styling. |
+| **📁 File Sharing:** Drag-and-drop or select files P2P (max 20MB). | |
 
 ---
 
@@ -62,6 +63,39 @@ SyncPad operates on a **P2P Hub-and-Spoke (Star) Topology**:
 * **Guests connect directly to the Host** using WebRTC datachannels via PeerJS.
 * When a guest makes a change, they send the synchronization payload to the Host, who updates their local view and **broadcasts the delta** out to all other connected guests.
 * All communications are encrypted, direct, and zero-knowledge.
+
+```mermaid
+graph TD
+    subgraph Star Network (P2P Session)
+        Host[⚡ Host Node - Owner]
+        GuestA[👤 Guest A]
+        GuestB[👤 Guest B]
+        GuestC[👤 Guest C]
+    end
+
+    Signaling[🌐 PeerJS Signaling Server]
+    
+    %% Handshake connections
+    Host -.->|Initial registration| Signaling
+    GuestA -.->|Join handshake| Signaling
+    
+    %% WebRTC direct connections
+    Host <===>|WebRTC Datachannel| GuestA
+    Host <===>|WebRTC Datachannel| GuestB
+    Host <===>|WebRTC Datachannel| GuestC
+
+    %% Styling
+    classDef hostStyle fill:#e11d48,stroke:#be123c,stroke-width:2px,color:#fff;
+    classDef guestStyle fill:#1e293b,stroke:#475569,stroke-width:1px,color:#f1f5f9;
+    classDef sigStyle fill:#0f172a,stroke:#334155,stroke-width:1px,color:#94a3b8;
+    
+    class Host hostStyle;
+    class GuestA,GuestB,GuestC guestStyle;
+    class Signaling sigStyle;
+```
+
+> [!IMPORTANT]
+> **Data Privacy Audit**: SyncPad has **zero database tracking or logs**. Since all data travels strictly peer-to-peer via WebRTC and is cached in transient `sessionStorage` (which is wiped automatically the second you close the tab), your documents are completely private and untraceable.
 
 ---
 
